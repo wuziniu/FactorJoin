@@ -10,12 +10,15 @@ class Factor:
     """
     This the class defines a multidimensional conditional probability.
     """
-    def __init__(self, variables, pdfs):
+    def __init__(self, variables, pdfs, equivalent_variables=[]):
         self.variables = variables
+        self.equivalent_variables = equivalent_variables
         self.pdfs = pdfs
         self.cardinalities = dict()
         for i, var in enumerate(self.variables):
             self.cardinalities[var] = pdfs.shape[i]
+            if len(equivalent_variables) != 0:
+                self.cardinalities[equivalent_variables[i]] = pdfs.shape[i]
 
 
 class Bound_ensemble:
@@ -74,7 +77,7 @@ class Bound_ensemble:
 
         return tables_all, table_query, join_cond, join_keys
 
-    def get_all_id_conidtional_distribution(self, table_queries, join_keys):
+    def get_all_id_conidtional_distribution(self, table_queries, join_keys, equivalent_group):
         res = dict()
         for table in join_keys:
             key_attrs = list(join_keys[table])
@@ -83,7 +86,13 @@ class Bound_ensemble:
             else:
                 table_query = {}
             id_attrs, probs = self.bns[table].query_id_prob(table_query, key_attrs)
-            res[table] = Factor(id_attrs, probs)
+            new_id_attrs = []
+            for K in id_attrs:
+                for PK in equivalent_group:
+                    if K in equivalent_group[PK]:
+                        new_id_attrs.append(PK)
+            assert len(new_id_attrs) == len(id_attrs)
+            res[table] = Factor(id_attrs, probs, new_id_attrs)
         return res
 
     def eliminate_one_key_group_general(self, tables, key_group, factors):
@@ -141,20 +150,27 @@ class Bound_ensemble:
         else:
             return self.compute_bound_oned(all_probs_eliminated, all_modes_eliminated)
 
-        for i in range(len(rest_group_cardinalty)):
+        for i in range(rest_group_cardinalty):
             for table in rest_group_tables:
-                idx = factors[table].equivalent_variables.index(key_group)
+                idx_f = factors[table].equivalent_variables.index(key_group)
+                idx_b = self.table_buckets[table].id_attributes.index(relevant_keys[key_group][table])
                 bin_modes = self.table_buckets[table].twod_bin_modes[relevant_keys[key_group][table]]
-                if idx == 0:
+                if idx_f == 0 and idx_b == 0:
                     all_probs_eliminated.append(factors[table].pdfs[:, i])
                     all_modes_eliminated.append(np.minimum(bin_modes[:, i], factors[table].pdfs[:, i]))
+                elif idx_f == 0 and idx_b == 1:
+                    all_probs_eliminated.append(factors[table].pdfs[:, i])
+                    all_modes_eliminated.append(np.minimum(bin_modes[i, :], factors[table].pdfs[:, i]))
+                elif idx_f == 1 and idx_b == 0:
+                    all_probs_eliminated.append(factors[table].pdfs[i, :])
+                    all_modes_eliminated.append(np.minimum(bin_modes[:, i], factors[table].pdfs[i, :]))
                 else:
                     all_probs_eliminated.append(factors[table].pdfs[i, :])
                     all_modes_eliminated.append(np.minimum(bin_modes[i, :], factors[table].pdfs[i, :]))
             new_factor_pdf[i] = self.compute_bound_oned(all_probs_eliminated, all_modes_eliminated)
 
         for table in rest_group_tables:
-            factors[table] = Factor(rest_group, new_factor_pdf)
+            factors[table] = Factor([rest_group], new_factor_pdf, [rest_group])
 
         return None
 
@@ -165,7 +181,7 @@ class Bound_ensemble:
         non_zero_idx = np.where(multiplier != 0)[0]
         min_number = np.amin(all_probs[:, non_zero_idx]/all_modes[:, non_zero_idx], axis=0)
         multiplier[non_zero_idx] = multiplier[non_zero_idx] * min_number
-        return multiplier
+        return np.sum(multiplier)
 
     def get_optimal_elimination_order(self, equivalent_group, join_keys, factors):
         cardinalities = dict()
@@ -215,7 +231,7 @@ class Bound_ensemble:
         conditional_factors = self.get_all_id_conidtional_distribution(table_queries, join_keys, equivalent_group)
         optimal_order, tables_involved, relevant_keys = self.get_optimal_elimination_order(equivalent_group, join_keys,
                                                                             conditional_factors)
-        res = 0
+
         for key_group in optimal_order:
             tables = tables_involved[key_group]
             res = self.eliminate_one_key_group(tables, key_group, conditional_factors, relevant_keys)
