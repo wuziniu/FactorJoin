@@ -119,7 +119,6 @@ def process_condition(cond, tables_all=None):
 
 
 def process_condition_join(cond, tables_all):
-    # only support equality join
     start = None
     join = False
     join_keys = {}
@@ -141,21 +140,17 @@ def process_condition_join(cond, tables_all):
     right = cond[end:].strip()
     table1 = left.split(".")[0].strip().lower()
     if table1 in tables_all:
-        cond = cond.replace(table1 + ".", tables_all[table1] + ".")
-        table1 = tables_all[table1]
-        left = table1 + "." + left.split(".")[-1].strip()
+        left = tables_all[table1] + "." + left.split(".")[-1].strip()
     else:
         return None, None, False, None
     if "." in right:
         table2 = right.split(".")[0].strip().lower()
         if table2 in tables_all:
-            cond = cond.replace(table2 + ".", tables_all[table2] + ".")
-            table2 = tables_all[table2]
-            right = table2 + "." + right.split(".")[-1].strip()
+            right = tables_all[table2] + "." + right.split(".")[-1].strip()
             join = True
             join_keys[table1] = left
             join_keys[table2] = right
-            return table1 + " " + table2, cond, join, join_keys
+            return table1 + " " + table2, left + " = " + right, join, join_keys
     return None, None, False, None
 
 
@@ -237,4 +232,5 @@ def parse_sub_plan_queries(psql_raw_file):
             table_str = table1 + " " + table2
             sub_plan_queries_str.append(table_str)
         sub_plan_queries_str_all.append(sub_plan_queries_str)
+    return sub_plan_queries_str_all
 
