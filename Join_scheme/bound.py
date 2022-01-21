@@ -1,9 +1,9 @@
 import numpy as np
 import copy
 
-from Join_scheme.join_graph import process_condition, get_join_hyper_graph
+from Join_scheme.join_graph import process_condition, get_join_hyper_graph, parse_query_all_join, \
+    parse_query_all_single_table
 from Join_scheme.data_prepare import identify_key_values
-from BayesCard.Evaluation.cardinality_estimation import timestamp_transorform, construct_table_query
 
 
 class Factor:
@@ -16,9 +16,9 @@ class Factor:
         self.pdfs = pdfs
         self.cardinalities = dict()
         for i, var in enumerate(self.variables):
-            self.cardinalities[var] = pdfs.shape[i]
+            self.cardinalities[var] = len(pdfs[i])
             if len(equivalent_variables) != 0:
-                self.cardinalities[equivalent_variables[i]] = pdfs.shape[i]
+                self.cardinalities[equivalent_variables[i]] = len(pdfs[i])
 
 
 class Bound_ensemble:
@@ -30,54 +30,21 @@ class Bound_ensemble:
         self.table_buckets = table_buckets
         self.schema = schema
         self.all_keys, self.equivalent_keys = identify_key_values(schema)
+        self.all_join_conds = None
+        self.reverse_table_alias = None
 
     def parse_query_simple(self, query):
         """
         If your selection query contains no aggregation and nested sub-queries, you can use this function to parse a
         join query. Otherwise, use parse_query function.
         """
-        query = query.replace(" where ", " WHERE ")
-        query = query.replace(" from ", " FROM ")
-        query = query.replace(" and ", " AND ")
-        query = query.split(";")[0]
-        query = query.strip()
-        tables_all = {}
-        join_cond = []
-        table_query = {}
-        join_keys = {}
-        tables_str = query.split(" WHERE ")[0].split(" FROM ")[-1]
-        for table_str in tables_str.split(","):
-            table_str = table_str.strip()
-            if " as " in table_str:
-                tables_all[table_str.split(" as ")[-1]] = table_str.split(" as ")[0]
-            else:
-                tables_all[table_str.split(" ")[-1]] = table_str.split(" ")[0]
-
-        # processing conditions
-        conditions = query.split(" WHERE ")[-1].split(" AND ")
-        for cond in conditions:
-            table, cond, join, join_key = process_condition(cond, tables_all)
-            if not join:
-                attr = cond[0]
-                op = cond[1]
-                value = cond[2]
-                if "Date" in attr:
-                    assert "::timestamp" in value
-                    value = timestamp_transorform(value.strip().split("::timestamp")[0])
-                if table not in table_query:
-                    table_query[table] = dict()
-                construct_table_query(self.bns[table], table_query[table], attr, op, value)
-            else:
-                join_cond.append(cond)
-                for tab in join_key:
-                    if tab in join_keys:
-                        join_keys[tab].add(join_key[tab])
-                    else:
-                        join_keys[tab] = set([join_key[tab]])
-
+        tables_all, join_cond, join_keys = parse_query_all_join(query)
+        #TODO: implement functions on parsing filter conditions.
+        table_query = parse_query_all_single_table(query)
         return tables_all, table_query, join_cond, join_keys
 
     def get_all_id_conidtional_distribution(self, table_queries, join_keys, equivalent_group):
+        #TODO: make it work on query-driven and sampling based
         res = dict()
         for table in join_keys:
             key_attrs = list(join_keys[table])
@@ -184,6 +151,9 @@ class Bound_ensemble:
         return np.sum(multiplier)
 
     def get_optimal_elimination_order(self, equivalent_group, join_keys, factors):
+        """
+        This function determines the optimial elimination order for each key group
+        """
         cardinalities = dict()
         lengths = dict()
         tables_involved = dict()
@@ -225,7 +195,7 @@ class Bound_ensemble:
             optimal_order[i], optimal_order[min_idx] = optimal_order[min_idx], optimal_order[i]
         return optimal_order, tables_involved, relevant_keys
 
-    def get_cardinality_bound(self, query_str):
+    def get_cardinality_bound_one(self, query_str):
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group = get_join_hyper_graph(join_keys, self.equivalent_keys)
         conditional_factors = self.get_all_id_conidtional_distribution(table_queries, join_keys, equivalent_group)
@@ -236,3 +206,56 @@ class Bound_ensemble:
             tables = tables_involved[key_group]
             res = self.eliminate_one_key_group(tables, key_group, conditional_factors, relevant_keys)
         return res
+
+    def get_cardinality_bound_all(self, query_str, sub_plan_query_str_all):
+        tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
+        equivalent_group = get_join_hyper_graph(join_keys, self.equivalent_keys)
+        conditional_factors = self.get_all_id_conidtional_distribution(table_queries, join_keys, equivalent_group)
+        self.all_join_conds = set()
+        self.reverse_table_alias = {v: k for k, v in tables_all.items()}
+        res = []
+        for sub_plan_query_str in sub_plan_query_str_all:
+            sub_plan_query = set(sub_plan_query_str.split(" "))
+            curr_join_keys = self.get_sub_plan_join_key(sub_plan_query, join_cond)
+            curr_equivalent_group = self.get_sub_plan_equivalent_group(sub_plan_query, equivalent_group)
+            curr_factors = self.get_sub_plan_conditional_factors(sub_plan_query, conditional_factors)
+            optimal_order, tables_involved, relevant_keys = self.get_optimal_elimination_order(curr_equivalent_group,
+                                                                                               curr_join_keys,
+                                                                                               curr_factors)
+
+            for key_group in optimal_order:
+                tables = tables_involved[key_group]
+                res.append(self.eliminate_one_key_group(tables, key_group, conditional_factors, relevant_keys))
+        return res
+
+    def get_sub_plan_join_key(self, sub_plan_query, join_cond):
+        # returning a subset of join_keys covered by the tables in sub_plan_query
+        touched_join_cond = set()
+        untouched_join_cond = set()
+        for tab in join_cond:
+            if tab in sub_plan_query:
+                touched_join_cond = touched_join_cond.union(join_cond[tab])
+            else:
+                untouched_join_cond = untouched_join_cond.union(join_cond[tab])
+        touched_join_cond -= untouched_join_cond
+
+        join_keys = dict()
+        for cond in touched_join_cond:
+            key1 = cond.split("=")[0].strip()
+            table1 = self.reverse_table_alias[key1.split(".")[0].strip()]
+            if table1 not in join_keys:
+                join_keys[table1] = set([key1])
+            else:
+                join_keys[table1].add(key1)
+
+            key2 = cond.split("=")[1].strip()
+            table2 = self.reverse_table_alias[key2.split(".")[0].strip()]
+            if table2 not in join_keys:
+                join_keys[table2] = set([key2])
+            else:
+                join_keys[table2].add(key2)
+
+        return join_keys
+
+
+

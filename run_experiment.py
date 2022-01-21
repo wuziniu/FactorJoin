@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from Evaluation.training import train_one_stats
+from Evaluation.testing import test_on_stats
 
 if __name__ == '__main__':
 
