@@ -211,7 +211,6 @@ class Bound_ensemble:
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group = get_join_hyper_graph(join_keys, self.equivalent_keys)
         conditional_factors = self.get_all_id_conidtional_distribution(table_queries, join_keys, equivalent_group)
-        self.all_join_conds = set()
         self.reverse_table_alias = {v: k for k, v in tables_all.items()}
         res = []
         for sub_plan_query_str in sub_plan_query_str_all:
