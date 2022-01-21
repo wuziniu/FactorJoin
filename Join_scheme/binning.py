@@ -305,7 +305,7 @@ def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_k
                 rest_buckets[key].bin_means[i] = np.mean(bin_count)
 
     best_buckets = Bucket_group(rest_buckets, start_key, sample_rate, primary_keys=primary_keys)
-    new_data = best_buckets.bucketize(data, n_bins)
+    new_data = best_buckets.bucketize(data)
     return new_data, best_buckets
 
 
