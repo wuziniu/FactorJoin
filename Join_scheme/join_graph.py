@@ -140,17 +140,21 @@ def process_condition_join(cond, tables_all):
     right = cond[end:].strip()
     table1 = left.split(".")[0].strip().lower()
     if table1 in tables_all:
-        left = tables_all[table1] + "." + left.split(".")[-1].strip()
+        cond = cond.replace(table1 + ".", tables_all[table1] + ".")
+        table1 = tables_all[table1]
+        left = table1 + "." + left.split(".")[-1].strip()
     else:
         return None, None, False, None
     if "." in right:
         table2 = right.split(".")[0].strip().lower()
         if table2 in tables_all:
-            right = tables_all[table2] + "." + right.split(".")[-1].strip()
+            cond = cond.replace(table2 + ".", tables_all[table2] + ".")
+            table2 = tables_all[table2]
+            right = table2 + "." + right.split(".")[-1].strip()
             join = True
             join_keys[table1] = left
             join_keys[table2] = right
-            return table1 + " " + table2, left + " = " + right, join, join_keys
+            return table1 + " " + table2, cond, join, join_keys
     return None, None, False, None
 
 
@@ -164,7 +168,7 @@ def parse_query_all_join(query):
     query = query.split(";")[0]
     query = query.strip()
     tables_all = {}
-    join_cond = {}
+    join_cond = []
     join_keys = {}
     tables_str = query.split(" WHERE ")[0].split(" FROM ")[-1]
     for table_str in tables_str.split(","):
@@ -181,6 +185,7 @@ def parse_query_all_join(query):
             cond = cond[1:-1]
         table, cond, join, join_key = process_condition_join(cond, tables_all)
         if join:
+            join_cond.append(cond)
             for tab in join_key:
                 if tab in join_keys:
                     join_keys[tab].add(join_key[tab])
@@ -190,31 +195,6 @@ def parse_query_all_join(query):
                     join_cond[tab] = set([cond])
 
     return tables_all, join_cond, join_keys
-
-
-"""
-def get_join_hyper_graph(join_keys, equivalent_keys):
-    equivalent_group = dict()
-    table_ordered_equivalent_group = dict()
-    for table in join_keys:
-        for key in join_keys[table]:
-            seen = False
-            for indicator in equivalent_keys:
-                if key in equivalent_keys[indicator]:
-                    if seen:
-                        assert False, f"{key} appears in multiple equivalent groups."
-                    if indicator not in equivalent_group:
-                        equivalent_group[indicator] = [key]
-                        table_ordered_equivalent_group[indicator] = dict()
-                        table_ordered_equivalent_group[indicator][table] = key
-                    else:
-                        equivalent_group[indicator].append(key)
-                        table_ordered_equivalent_group[indicator][table] = key
-                    seen = True
-            if not seen:
-                assert False, f"no equivalent groups found for {key}."
-    return equivalent_group, table_ordered_equivalent_group
-"""
 
 
 def get_join_hyper_graph(join_keys, equivalent_keys):
