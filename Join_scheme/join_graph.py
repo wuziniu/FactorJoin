@@ -192,8 +192,10 @@ def parse_query_all_join(query):
     return tables_all, join_cond, join_keys
 
 
+"""
 def get_join_hyper_graph(join_keys, equivalent_keys):
     equivalent_group = dict()
+    table_ordered_equivalent_group = dict()
     for table in join_keys:
         for key in join_keys[table]:
             seen = False
@@ -203,13 +205,48 @@ def get_join_hyper_graph(join_keys, equivalent_keys):
                         assert False, f"{key} appears in multiple equivalent groups."
                     if indicator not in equivalent_group:
                         equivalent_group[indicator] = [key]
+                        table_ordered_equivalent_group[indicator] = dict()
+                        table_ordered_equivalent_group[indicator][table] = key
                     else:
                         equivalent_group[indicator].append(key)
+                        table_ordered_equivalent_group[indicator][table] = key
                     seen = True
             if not seen:
                 assert False, f"no equivalent groups found for {key}."
-    return equivalent_group
+    return equivalent_group, table_ordered_equivalent_group
+"""
 
+
+def get_join_hyper_graph(join_keys, equivalent_keys):
+    equivalent_group = dict()
+    table_equivalent_group = dict()
+    table_key_equivalent_group = dict()
+    for table in join_keys:
+        for key in join_keys[table]:
+            seen = False
+            for indicator in equivalent_keys:
+                if key in equivalent_keys[indicator]:
+                    if seen:
+                        assert False, f"{key} appears in multiple equivalent groups."
+                    if indicator not in equivalent_group:
+                        equivalent_group[indicator] = [key]
+                        table_key_equivalent_group[table] = dict()
+                        table_key_equivalent_group[table][indicator] = [key]
+                    else:
+                        equivalent_group[indicator].append(key)
+                        if indicator not in table_key_equivalent_group[table]:
+                            table_key_equivalent_group[table][indicator] = [key]
+                        else:
+                            table_key_equivalent_group[table][indicator].append(key)
+                    if table not in table_equivalent_group:
+                        table_equivalent_group[table] = set([indicator])
+                    else:
+                        table_equivalent_group[table].add(indicator)
+
+                    seen = True
+            if not seen:
+                assert False, f"no equivalent groups found for {key}."
+    return equivalent_group, table_equivalent_group, table_key_equivalent_group
 
 def parse_query_all_single_table(query):
     return

@@ -21,15 +21,16 @@ class Bucket:
 class Table_bucket:
     """
     The class of bucketization for all key attributes in a table.
-    Supporting more than three dimensional bin modes requires simplifying the causal structure, which is left as a
-    future work.
+    Supporting more than three dimensional bin modes requires simplifying the causal structure
     """
-
-    def __init__(self, table_name, id_attributes, bin_sizes):
+    def __init__(self, table_name, id_attributes, bin_sizes, oned_bin_modes=None):
         self.table_name = table_name
         self.id_attributes = id_attributes
         self.bin_sizes = bin_sizes
-        self.oned_bin_modes = dict()
+        if oned_bin_modes:
+            self.oned_bin_modes = oned_bin_modes
+        else:
+            self.oned_bin_modes = dict()
         self.twod_bin_modes = dict()
 
 
@@ -90,17 +91,25 @@ class Bucket_group:
                 count += len(data[key][np.isin(data[key], b)])
                 res[key][np.isin(data[key], b)] = i
 
-            if self.sample_rate[key] < 1.0:
-                bin_modes = self.buckets[key].bin_modes
-                bin_modes[bin_modes != 1] = bin_modes[bin_modes != 1] / self.sample_rate[key]
-                self.buckets[key].bin_modes = bin_modes
-
         self.bins = cumulative_bin
 
         for key in data:
             if key in self.primary_keys:
                 res[key] = self.bucketize_PK(data[key])
-                self.buckets[key] = Bucket(key)
+                self.buckets[key] = Bucket(key, bin_modes=np.ones(len(self.bins)))
+
+        for key in data:
+            if key in self.primary_keys:
+                continue
+            print(self.sample_rate[key])
+            if self.sample_rate[key] < 1.0:
+                print(self.buckets[key].bin_modes[0:4])
+                bin_modes = np.asarray(self.buckets[key].bin_modes)
+                print(type(bin_modes))
+                bin_modes[bin_modes != 1] = bin_modes[bin_modes != 1] / self.sample_rate[key]
+                self.buckets[key].bin_modes = bin_modes
+                print(self.buckets[key].bin_modes[0:4])
+
         return res
 
     def bucketize_PK(self, data):
@@ -307,5 +316,6 @@ def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_k
     best_buckets = Bucket_group(rest_buckets, start_key, sample_rate, primary_keys=primary_keys)
     new_data = best_buckets.bucketize(data)
     return new_data, best_buckets
+
 
 

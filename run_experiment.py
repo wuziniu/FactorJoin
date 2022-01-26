@@ -43,7 +43,9 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
 
     print(args.dataset)
-    if args.dataset == 'stats':
+    if args.dataset == 'imdb':
         if args.generate_models:
-            train_one_stats(args.data_path, args.model_path, args.n_bins, args.save_bucket_bins)
+            table_buckets = train_one_stats(args.data_path, args.model_path, args.n_bins, args.save_bucket_bins)
+
+
 
