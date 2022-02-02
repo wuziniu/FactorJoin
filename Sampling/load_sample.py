@@ -2,20 +2,22 @@ import pickle5 as pickle
 import numpy as np
 import os
 from Join_scheme.bound import Factor
+from Join_scheme.binning import apply_binning_to_data_value_count
 
 
-def load_sample_imdb(table_buckets, tables_alias, query_file_orders, SPERCENTAGE=1.0,
-                     qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/"):
+def load_sample_imdb(table_buckets, tables_alias, query_file_orders, join_keys, table_key_equivalent_group,
+                     SPERCENTAGE=1.0, qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/"):
     qdir = qdir.format(SPERCENTAGE)
     all_sample_factors = []
     for fn in query_file_orders:
-        conditional_factors = load_sample_imdb_one_query(table_buckets, tables_alias, fn, SPERCENTAGE, qdir)
+        conditional_factors = load_sample_imdb_one_query(table_buckets, tables_alias, fn, join_keys,
+                                                         table_key_equivalent_group, SPERCENTAGE, qdir)
         all_sample_factors.append(conditional_factors)
     return all_sample_factors
 
 
-def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, SPERCENTAGE=1.0,
-                     qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/",):
+def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, join_keys, table_key_equivalent_group,
+                               SPERCENTAGE=1.0, qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/"):
     qdir = qdir.format(SPERCENTAGE)
     fpath = os.path.join(qdir, query_file_name)
     with open(fpath, "rb") as f:
@@ -23,9 +25,10 @@ def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, SPE
 
     conditional_factors = dict()
     table_pdfs = dict()
-    table_lens = dict()
+    filter_size = dict()
     for i, alias in enumerate(data["all_aliases"]):
         column = data["all_columns"][i]
+        alias = alias[0]
         key = tables_alias[alias] + "." + column
         cards = data["results"][i][0]
         n_bins = table_buckets[tables_alias[alias]].bin_sizes[key]
@@ -35,17 +38,46 @@ def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, SPE
                 j = 0
             pdfs[j] += val
         table_len = np.sum(pdfs)
-        pdfs /= table_len
+        if table_len == 0:
+            # no sample satisfy the filter, set it with a small value
+            table_len = 1
+            pdfs = table_key_equivalent_group[tables_alias[alias]].pdfs[key]
+        else:
+            pdfs /= table_len
         if alias not in table_pdfs:
             table_pdfs[alias] = dict()
-            table_lens[alias] = table_len
-        else:
-            assert table_len == table_lens[alias]
+            filter_size[alias] = table_len
         table_pdfs[alias][key] = pdfs
 
-    for alias in table_pdfs:
-        conditional_factors[alias] = Factor(tables_alias[alias], table_lens[alias]/(SPERCENTAGE*100),
-                                            list(table_pdfs[alias].keys()), table_pdfs[alias])
+    for alias in tables_alias:
+        if alias in table_pdfs:
+            table_len = min(table_key_equivalent_group[tables_alias[alias]].table_len,
+                            filter_size[alias]/(SPERCENTAGE/100))
+            na_values = table_key_equivalent_group[tables_alias[alias]].na_values
+            conditional_factors[alias] = Factor(tables_alias[alias], table_len, list(table_pdfs[alias].keys()),
+                                                table_pdfs[alias], na_values)
+        else:
+            #TODO: ground-truth distribution
+            conditional_factors[alias] = table_key_equivalent_group[tables_alias[alias]]
     return conditional_factors
+
+
+def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_values):
+    all_factor_pdfs = dict()
+    for PK in equivalent_keys:
+        bin_value = bins[PK]
+        for key in equivalent_keys[PK]:
+            table = key.split(".")[0]
+            temp = apply_binning_to_data_value_count(bin_value, data[key])
+            if table not in all_factor_pdfs:
+                all_factor_pdfs[table] = dict()
+            all_factor_pdfs[table][key] = temp / np.sum(temp)
+
+    all_factors = dict()
+    for table in all_factor_pdfs:
+        all_factors[table] = Factor(table, table_lens[table], list(all_factor_pdfs[table].keys()),
+                                    all_factor_pdfs[table], na_values[table])
+    return all_factors
+
 
 

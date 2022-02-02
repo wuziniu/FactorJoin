@@ -23,6 +23,7 @@ class Table_bucket:
     The class of bucketization for all key attributes in a table.
     Supporting more than three dimensional bin modes requires simplifying the causal structure
     """
+
     def __init__(self, table_name, id_attributes, bin_sizes, oned_bin_modes=None):
         self.table_name = table_name
         self.id_attributes = id_attributes
@@ -101,14 +102,10 @@ class Bucket_group:
         for key in data:
             if key in self.primary_keys:
                 continue
-            print(self.sample_rate[key])
             if self.sample_rate[key] < 1.0:
-                print(self.buckets[key].bin_modes[0:4])
                 bin_modes = np.asarray(self.buckets[key].bin_modes)
-                print(type(bin_modes))
                 bin_modes[bin_modes != 1] = bin_modes[bin_modes != 1] / self.sample_rate[key]
                 self.buckets[key].bin_modes = bin_modes
-                print(self.buckets[key].bin_modes[0:4])
 
         return res
 
@@ -317,3 +314,13 @@ def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_k
     new_data = best_buckets.bucketize(data)
     return new_data, best_buckets
 
+
+def apply_binning_to_data_value_count(bins, data):
+    res = np.zeros(len(bins))
+    unique_remain = np.unique(data)
+    for i, bin in enumerate(bins):
+        res[i] = np.sum(np.isin(data, bin))
+        unique_remain = np.setdiff1d(unique_remain, bin)
+
+    res[0] += np.sum(np.isin(data, unique_remain))
+    return res

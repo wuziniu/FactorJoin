@@ -10,37 +10,39 @@ class Factor:
     """
     This the class defines a multidimensional conditional probability on one table.
     """
-    def __init__(self, table, table_len, variables, pdfs):
+    def __init__(self, table, table_len, variables, pdfs, na_values=None):
         self.table = table
         self.table_len = table_len
         self.variables = variables
         self.pdfs = pdfs
+        self.na_values = na_values  # this is the percentage of data, which is not nan.
 
 
 class Group_Factor:
     """
         This the class defines a multidimensional conditional probability on a group of tables.
     """
-    def __init__(self, tables, tables_size, pdfs, bin_modes, equivalent_groups=None, table_key_equivalent_group=None):
+    def __init__(self, tables, tables_size, pdfs, bin_modes, equivalent_groups=None, table_key_equivalent_group=None,
+                 na_values=None):
         self.table = tables
         self.tables_size = tables_size
         self.pdfs = pdfs
         self.bin_modes = bin_modes
         self.equivalent_groups = equivalent_groups
         self.table_key_equivalent_group = table_key_equivalent_group
+        self.na_values = na_values
 
 
 class Bound_ensemble:
     """
     This the class where we store all the trained models and perform inference on the bound.
     """
-    def __init__(self, bns, table_buckets, schema):
-        self.bns = bns
+    def __init__(self, table_buckets, schema, ground_truth_factors_no_filter=None):
         self.table_buckets = table_buckets
         self.schema = schema
         self.all_keys, self.equivalent_keys = identify_key_values(schema)
         self.all_join_conds = None
-        self.reverse_table_alias = None
+        self.ground_truth_factors_no_filter = ground_truth_factors_no_filter
 
     def parse_query_simple(self, query):
         """
@@ -52,9 +54,10 @@ class Bound_ensemble:
         table_filters = dict()
         return tables_all, table_filters, join_cond, join_keys
 
-    def get_all_id_conidtional_distribution(self, query_file_name, tables_alias):
+    def get_all_id_conidtional_distribution(self, query_file_name, tables_alias, join_keys):
         #TODO: make it work on query-driven and sampling based
-        return load_sample_imdb_one_query(self.table_buckets, tables_alias, query_file_name)
+        return load_sample_imdb_one_query(self.table_buckets, tables_alias, query_file_name, join_keys,
+                                          self.ground_truth_factors_no_filter)
 
 
     def eliminate_one_key_group(self, tables, key_group, factors, relevant_keys):
@@ -115,11 +118,14 @@ class Bound_ensemble:
         return None
 
     def compute_bound_oned(self, all_probs, all_modes, return_factor=False):
+        temp_all_modes = []
+        for i in range(len(all_modes)):
+            temp_all_modes.append(np.minimum(all_probs[i], all_modes[i]))
         all_probs = np.stack(all_probs, axis=0)
-        all_modes = np.stack(all_modes, axis=0)
-        multiplier = np.prod(all_modes, axis=0)
+        temp_all_modes = np.stack(temp_all_modes, axis=0)
+        multiplier = np.prod(temp_all_modes, axis=0)
         non_zero_idx = np.where(multiplier != 0)[0]
-        min_number = np.amin(all_probs[:, non_zero_idx]/all_modes[:, non_zero_idx], axis=0)
+        min_number = np.amin(all_probs[:, non_zero_idx]/temp_all_modes[:, non_zero_idx], axis=0)
         if return_factor:
             new_probs = np.zeros(multiplier.shape)
             new_probs[non_zero_idx] = multiplier[non_zero_idx] * min_number
@@ -185,6 +191,59 @@ class Bound_ensemble:
             res = self.eliminate_one_key_group(tables, key_group, conditional_factors, relevant_keys)
         return res
 
+    def get_sub_plan_queries_sql(self, query_str, sub_plan_query_str_all, query_name=None):
+        tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
+        equivalent_group, table_equivalent_group, table_key_equivalent_group = get_join_hyper_graph(join_keys,
+                                                                                            self.equivalent_keys)
+        cached_sub_queries_sql = dict()
+        cached_union_key_group = dict()
+        res_sql = []
+        for (left_tables, right_tables) in sub_plan_query_str_all:
+            assert " " not in left_tables, f"{left_tables} contains more than one tables, violating left deep plan"
+            sub_plan_query_list = right_tables.split(" ") + [left_tables]
+            sub_plan_query_list.sort()
+            sub_plan_query_str = " ".join(sub_plan_query_list)  # get the string name of the sub plan query
+            sql_header = "SELECT COUNT(*) FROM "
+            for alias in sub_plan_query_list:
+                sql_header += (tables_all[alias] + " AS " + alias + ", ")
+            sql_header = sql_header[:-2] + " WHERE "
+            if " " in right_tables:
+                assert right_tables in cached_sub_queries_sql, f"{right_tables} not in cache, input is not ordered"
+                right_sql = cached_sub_queries_sql[right_tables]
+                right_union_key_group = cached_union_key_group[right_tables]
+                if left_tables in table_queries:
+                    left_sql = table_queries[left_tables]
+                    curr_sql = right_sql + " AND (" + left_sql + ")"
+                else:
+                    curr_sql = right_sql
+                additional_joins, union_key_group = self.get_additional_join_with_table_group(left_tables,
+                                                                        right_union_key_group,
+                                                                        table_equivalent_group,
+                                                                        table_key_equivalent_group)
+                for join in additional_joins:
+                    curr_sql = curr_sql + " AND " + join
+            else:
+                curr_sql = ""
+                if left_tables in table_queries:
+                    curr_sql += ("(" + table_queries[left_tables] + ")")
+                if right_tables in table_queries:
+                    if curr_sql != "":
+                        curr_sql += " AND "
+                    curr_sql += ("(" + table_queries[right_tables] + ")")
+
+                additional_joins, union_key_group = self.get_additional_joins_two_tables(left_tables, right_tables,
+                                                                        table_equivalent_group,
+                                                                        table_key_equivalent_group)
+                for join in additional_joins:
+                    if curr_sql == "":
+                        curr_sql += join
+                    else:
+                        curr_sql = curr_sql + " AND " + join
+            cached_sub_queries_sql[sub_plan_query_str] = curr_sql
+            cached_union_key_group[sub_plan_query_str] = union_key_group
+            res_sql.append(sql_header + curr_sql + ";")
+        return res_sql
+
     def get_cardinality_bound_all(self, query_str, sub_plan_query_str_all, query_name=None):
         """
         Get the cardinality bounds for all sub_plan_queires of a query.
@@ -196,9 +255,9 @@ class Bound_ensemble:
         """
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group, table_equivalent_group, table_key_equivalent_group = get_join_hyper_graph(join_keys,
-                                                                                                self.equivalent_keys)
-        conditional_factors = self.get_all_id_conidtional_distribution(query_name, tables_all)
-        self.reverse_table_alias = {v: k for k, v in tables_all.items()}
+                                                                                        self.equivalent_keys)
+        conditional_factors = self.get_all_id_conidtional_distribution(query_name, tables_all, join_keys)
+
         cached_sub_queries = dict()
         cardinality_bounds = []
         for (left_tables, right_tables) in sub_plan_query_str_all:
@@ -206,7 +265,6 @@ class Bound_ensemble:
             sub_plan_query_list = right_tables.split(" ") + [left_tables]
             sub_plan_query_list.sort()
             sub_plan_query_str = " ".join(sub_plan_query_list)  #get the string name of the sub plan query
-
             if " " in right_tables:
                 assert right_tables in cached_sub_queries, f"{right_tables} not in cache, input is not ordered"
                 right_bound_factor = cached_sub_queries[right_tables]
@@ -248,18 +306,28 @@ class Bound_ensemble:
         key_group_pdf = dict()
         key_group_bin_mode = dict()
         new_union_key_group = dict()
+        new_na_values = dict()
         res = right_bound_factor.tables_size
         for key_group in equivalent_key_group:
-            all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len for key in
-                        equivalent_key_group[key_group]["left"]] + \
-                       [right_bound_factor.pdfs[key] * res for key in equivalent_key_group[key_group]["right"]]
+            #print(cond_factor_left.na_values)
+            #print(right_bound_factor.na_values)
+            all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len * cond_factor_left.na_values[key]
+                        for key in equivalent_key_group[key_group]["left"]] + \
+                       [right_bound_factor.pdfs[key] * res * right_bound_factor.na_values[key]
+                        for key in equivalent_key_group[key_group]["right"]]
             all_bin_modes = [bin_mode_left[key] for key in equivalent_key_group[key_group]["left"]] + \
                             [bin_mode_right[key] for key in equivalent_key_group[key_group]["right"]]
-            new_pdf, new_bin_mode = self.compute_bound_oned(all_pdfs, all_bin_modes, return_factor=False)
+            new_pdf, new_bin_mode = self.compute_bound_oned(all_pdfs, all_bin_modes, return_factor=True)
             res = np.sum(new_pdf)
-            key_group_pdf[key_group] = new_pdf / res
+            if res == 0:
+                res = 10
+                new_pdf[-1] = 1
+                key_group_pdf[key_group] = new_pdf
+            else:
+                key_group_pdf[key_group] = new_pdf / res
             key_group_bin_mode[key_group] = new_bin_mode
             new_union_key_group[key_group] = [key_group]
+            new_na_values[key_group] = 1
 
         for group in union_key_group:
             table, keys = union_key_group[group]
@@ -268,12 +336,14 @@ class Bound_ensemble:
                 if table == "left":
                     key_group_pdf[key] = cond_factor_left.pdfs[key]
                     key_group_bin_mode[key] = self.table_buckets[tables_all[left_table]].oned_bin_modes[key]
+                    new_na_values[key] = cond_factor_left.na_values[key]
                 else:
                     key_group_pdf[key] = right_bound_factor.pdfs[key]
                     key_group_bin_mode[key] = right_bound_factor.bin_modes[key]
+                    new_na_values[key] = right_bound_factor.na_values[key]
 
         new_factor = Group_Factor(sub_plan_query_str, res, key_group_pdf, key_group_bin_mode,
-                                  union_key_group_set, new_union_key_group)
+                                  union_key_group_set, new_union_key_group, new_na_values)
         return new_factor, res
 
     def get_join_keys_with_table_group(self, left_table, right_bound_factor, table_equivalent_group,
@@ -288,6 +358,7 @@ class Bound_ensemble:
 
         for group in union_key_group_set:
             if group in common_key_group:
+                equivalent_key_group[group] = dict()
                 equivalent_key_group[group]["left"] = table_key_equivalent_group[left_table][group]
                 equivalent_key_group[group]["right"] = right_bound_factor.table_key_equivalent_group[group]
             elif group in table_key_equivalent_group[left_table]:
@@ -296,6 +367,26 @@ class Bound_ensemble:
                 union_key_group[group] = ("right", right_bound_factor.table_key_equivalent_group[group])
         return equivalent_key_group, union_key_group_set, union_key_group
 
+    def get_additional_join_with_table_group(self, left_table, right_union_key_group, table_equivalent_group,
+                                             table_key_equivalent_group):
+        common_key_group = table_equivalent_group[left_table].intersection(set(right_union_key_group.keys()))
+        union_key_group_set = table_equivalent_group[left_table].union(set(right_union_key_group.keys()))
+        union_key_group = copy.deepcopy(right_union_key_group)
+        all_join_predicates = []
+        for group in union_key_group_set:
+            if group in common_key_group:
+                left_key = table_key_equivalent_group[left_table][group][0]
+                left_key = left_table + "." + left_key.split(".")[-1]
+                right_key = right_union_key_group[group]
+                join_predicate = left_key + " = " + right_key
+                all_join_predicates.append(join_predicate)
+            if group not in union_key_group:
+                assert group in table_key_equivalent_group[left_table]
+                left_key = table_key_equivalent_group[left_table][group][0]
+                left_key = left_table + "." + left_key.split(".")[-1]
+                union_key_group[group] = left_key
+
+        return all_join_predicates, union_key_group
 
     def join_two_tables(self, sub_plan_query_str, left_table, right_table, tables_all, conditional_factors, join_keys,
                         table_equivalent_group, table_key_equivalent_group):
@@ -316,16 +407,20 @@ class Bound_ensemble:
         key_group_bin_mode = dict()
         new_union_key_group = dict()
         res = cond_factor_right.table_len
+        new_na_values = dict()
         for key_group in equivalent_key_group:
-            all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len for key in equivalent_key_group[key_group][left_table]] + \
-                       [cond_factor_right.pdfs[key] * res for key in equivalent_key_group[key_group][right_table]]
+            all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len * cond_factor_left.na_values[key]
+                        for key in equivalent_key_group[key_group][left_table]] + \
+                       [cond_factor_right.pdfs[key] * res * cond_factor_right.na_values[key]
+                        for key in equivalent_key_group[key_group][right_table]]
             all_bin_modes = [bin_mode_left[key] for key in equivalent_key_group[key_group][left_table]] + \
-                            [bin_mode_right[key] for key in equivalent_key_group[key_group][left_table]]
-            new_pdf, new_bin_mode = self.compute_bound_oned(all_pdfs, all_bin_modes, return_factor=False)
+                            [bin_mode_right[key] for key in equivalent_key_group[key_group][right_table]]
+            new_pdf, new_bin_mode = self.compute_bound_oned(all_pdfs, all_bin_modes, return_factor=True)
             res = np.sum(new_pdf)
             key_group_pdf[key_group] = new_pdf / res
             key_group_bin_mode[key_group] = new_bin_mode
             new_union_key_group[key_group] = [key_group]
+            new_na_values[key_group] = 1.0
 
         for group in union_key_group:
             table, keys = union_key_group[group]
@@ -333,9 +428,10 @@ class Bound_ensemble:
             for key in keys:
                 key_group_pdf[key] = conditional_factors[table].pdfs[key]
                 key_group_bin_mode[key] = self.table_buckets[tables_all[table]].oned_bin_modes[key]
+                new_na_values[key] = conditional_factors[table].na_values[key]
 
         new_factor = Group_Factor(sub_plan_query_str, res, key_group_pdf, key_group_bin_mode,
-                                  union_key_group_set, new_union_key_group)
+                                  union_key_group_set, new_union_key_group, new_na_values)
         return new_factor, res
 
     def get_join_keys_two_tables(self, left_table, right_table, table_equivalent_group,
@@ -349,6 +445,7 @@ class Bound_ensemble:
         union_key_group = dict()
         for group in union_key_group_set:
             if group in common_key_group:
+                equivalent_key_group[group] = dict()
                 equivalent_key_group[group][left_table] = table_key_equivalent_group[left_table][group]
                 equivalent_key_group[group][right_table] = table_key_equivalent_group[right_table][group]
             elif group in table_key_equivalent_group[left_table]:
@@ -357,6 +454,30 @@ class Bound_ensemble:
                 union_key_group[group] = (right_table, table_key_equivalent_group[right_table][group])
         return equivalent_key_group, union_key_group_set, union_key_group
 
+    def get_additional_joins_two_tables(self, left_table, right_table, table_equivalent_group,
+                                        table_key_equivalent_group):
+        common_key_group = table_equivalent_group[left_table].intersection(table_equivalent_group[right_table])
+        union_key_group_set = table_equivalent_group[left_table].union(table_equivalent_group[right_table])
+        union_key_group = dict()
+        all_join_predicates = []
+        for group in union_key_group_set:
+            if group in common_key_group:
+                left_key = table_key_equivalent_group[left_table][group][0]
+                left_key = left_table + "." + left_key.split(".")[-1]
+                right_key = table_key_equivalent_group[right_table][group][0]
+                right_key = right_table + "." + right_key.split(".")[-1]
+                join_predicate = left_key + " = " + right_key
+                all_join_predicates.append(join_predicate)
+            if group in table_key_equivalent_group[left_table]:
+                left_key = table_key_equivalent_group[left_table][group][0]
+                left_key = left_table + "." + left_key.split(".")[-1]
+                union_key_group[group] = left_key
+            else:
+                right_key = table_key_equivalent_group[right_table][group][0]
+                right_key = right_table + "." + right_key.split(".")[-1]
+                union_key_group[group] = right_key
+
+        return all_join_predicates, union_key_group
 
     def get_sub_plan_join_key(self, sub_plan_query, join_cond):
         # returning a subset of join_keys covered by the tables in sub_plan_query
@@ -386,6 +507,5 @@ class Bound_ensemble:
                 join_keys[table2].add(key2)
 
         return join_keys
-
 
 

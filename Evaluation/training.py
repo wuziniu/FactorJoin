@@ -22,8 +22,9 @@ def train_one_imdb(data_path, model_folder, bin_size=None, save_bucket_bins=Fals
     else:
         #TODO: implement auto bin size generation
         n_bins = dict()
-    schema, table_buckets = process_imdb_data(data_path, model_folder, n_bins, save_bucket_bins)
-    return table_buckets
+    schema, table_buckets, ground_truth_factors_no_filter = process_imdb_data(data_path, model_folder, n_bins,
+                                                                              save_bucket_bins)
+    return Bound_ensemble(table_buckets, schema, ground_truth_factors_no_filter)
 
 
 

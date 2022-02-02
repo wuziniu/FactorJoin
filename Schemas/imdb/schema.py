@@ -227,9 +227,9 @@ def gen_imdb_schema(csv_path):
     schema.add_relationship('aka_name', 'person_id', 'name', 'id')
 
     # movie_link, is empty
-    # schema.add_relationship('movie_link', 'link_type_id', 'link_type', 'id')
-    # schema.add_relationship('movie_link', 'linked_movie_id', 'title', 'id')
-    # schema.add_relationship('movie_link', 'movie_id', 'title', 'id')
+    schema.add_relationship('movie_link', 'link_type_id', 'link_type', 'id')
+    schema.add_relationship('movie_link', 'linked_movie_id', 'title', 'id')
+    schema.add_relationship('movie_link', 'movie_id', 'title', 'id')
 
     # link_type, no relationships
 

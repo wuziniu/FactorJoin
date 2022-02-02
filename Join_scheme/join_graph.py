@@ -164,7 +164,6 @@ def parse_query_all_join(query):
     """
     query = query.replace(" where ", " WHERE ")
     query = query.replace(" from ", " FROM ")
-    # query = query.replace(" and ", " AND ")
     query = query.split(";")[0]
     query = query.strip()
     tables_all = {}
@@ -210,18 +209,17 @@ def get_join_hyper_graph(join_keys, equivalent_keys):
                         assert False, f"{key} appears in multiple equivalent groups."
                     if indicator not in equivalent_group:
                         equivalent_group[indicator] = [key]
-                        table_key_equivalent_group[table] = dict()
-                        table_key_equivalent_group[table][indicator] = [key]
                     else:
                         equivalent_group[indicator].append(key)
-                        if indicator not in table_key_equivalent_group[table]:
-                            table_key_equivalent_group[table][indicator] = [key]
-                        else:
-                            table_key_equivalent_group[table][indicator].append(key)
-                    if table not in table_equivalent_group:
+                    if table not in table_key_equivalent_group:
+                        table_key_equivalent_group[table] = dict()
                         table_equivalent_group[table] = set([indicator])
                     else:
                         table_equivalent_group[table].add(indicator)
+                    if indicator not in table_key_equivalent_group[table]:
+                        table_key_equivalent_group[table][indicator] = [key]
+                    else:
+                        table_key_equivalent_group[table][indicator].append(key)
 
                     seen = True
             if not seen:

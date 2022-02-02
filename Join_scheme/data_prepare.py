@@ -8,6 +8,7 @@ import time
 from Schemas.imdb.schema import gen_imdb_schema
 from Schemas.stats.schema import gen_stats_light_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, Table_bucket
+from Sampling.load_sample import get_ground_truth_no_filter
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +66,12 @@ def stats_analysis(sample, data, sample_rate, show=10):
         print(c[idx[i]], c[idx[i]]/sample_rate, len(data[data == n[idx[i]]]))
 
 
-def process_imdb_data(data_path, model_folder, n_bins, save_bucket_bins=False):
+def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_bucket_bins=False):
     schema = gen_imdb_schema(data_path)
     all_keys, equivalent_keys = identify_key_values(schema)
     data = dict()
+    table_lens = dict()
+    na_values = dict()
     primary_keys = []
     for table_obj in schema.tables:
         df_rows = pd.read_csv(table_obj.csv_file_location, header=None, escapechar='\\', encoding='utf-8',
@@ -81,11 +84,16 @@ def process_imdb_data(data_path, model_folder, n_bins, save_bucket_bins=False):
             df_rows = df_rows.drop(table_obj.table_name + '.' + attribute, axis=1)
 
         df_rows.apply(pd.to_numeric, errors="ignore")
+        table_lens[table_obj.table_name] = len(df_rows)
+        if table_obj.table_name not in na_values:
+            na_values[table_obj.table_name] = dict()
         for attr in df_rows.columns:
             if attr in all_keys:
                 data[attr] = df_rows[attr].values
                 data[attr][np.isnan(data[attr])] = -1
                 data[attr][data[attr] < 0] = -1
+                na_values[table_obj.table_name][attr] = len(data[attr][data[attr] != -1]) / table_lens[
+                    table_obj.table_name]
                 data[attr] = copy.deepcopy(data[attr])[data[attr] >= 0]
                 if len(np.unique(data[attr])) >= len(data[attr]) - 10:
                     primary_keys.append(attr)
@@ -93,7 +101,7 @@ def process_imdb_data(data_path, model_folder, n_bins, save_bucket_bins=False):
     sample_rate = dict()
     sampled_data = dict()
     for k in data:
-        temp = make_sample(data[k], 1000000)
+        temp = make_sample(data[k], sample_size)
         sampled_data[k] = temp[0]
         sample_rate[k] = temp[1]
 
@@ -121,9 +129,15 @@ def process_imdb_data(data_path, model_folder, n_bins, save_bucket_bins=False):
         table_buckets[table_name] = Table_bucket(table_name, list(bin_size[table_name].keys()), bin_size[table_name],
                                                  all_bin_modes[table_name])
 
+    all_bins = dict()
+    for key in optimal_buckets:
+        all_bins[key] = optimal_buckets[key].bins
+
+    ground_truth_factors_no_filter = get_ground_truth_no_filter(equivalent_keys, data, all_bins, table_lens, na_values)
+
     if save_bucket_bins:
         with open(model_folder + f"/buckets.pkl") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
 
-    return schema, table_buckets
+    return schema, table_buckets, ground_truth_factors_no_filter
 
