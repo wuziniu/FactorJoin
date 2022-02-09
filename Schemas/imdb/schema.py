@@ -136,12 +136,12 @@ def gen_imdb_schema(csv_path):
                            table_size=1312270))
 
     # movie_link, is empty
-    # schema.add_table(Table('movie_link', attributes=['id', 'movie_id', 'linked_movie_id', 'link_type_id'],
-    #                        csv_file_location=csv_path.format('movie_link')))
+    schema.add_table(Table('movie_link', attributes=['id', 'movie_id', 'linked_movie_id', 'link_type_id'],
+                            csv_file_location=csv_path.format('movie_link')))
 
     # link_type, no relationships
-    # schema.add_table(Table('link_type', attributes=['id', 'link'],
-    #                        csv_file_location=csv_path.format('link_type')))
+    schema.add_table(Table('link_type', attributes=['id', 'link'],
+                            csv_file_location=csv_path.format('link_type')))
 
     # movie_keyword
     schema.add_table(Table('movie_keyword', attributes=['id', 'movie_id', 'keyword_id'],
