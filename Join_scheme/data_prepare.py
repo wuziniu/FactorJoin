@@ -8,7 +8,7 @@ import time
 from Schemas.imdb.schema import gen_imdb_schema
 from Schemas.stats.schema import gen_stats_light_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, Table_bucket
-from Sampling.load_sample import get_ground_truth_no_filter
+from Join_scheme.binning import apply_binning_to_data_value_count
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,25 @@ def stats_analysis(sample, data, sample_rate, show=10):
     idx = np.argsort(c)[::-1]
     for i in range(min(show, len(idx))):
         print(c[idx[i]], c[idx[i]]/sample_rate, len(data[data == n[idx[i]]]))
+
+
+def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_values):
+    all_factor_pdfs = dict()
+    for PK in equivalent_keys:
+        bin_value = bins[PK]
+        for key in equivalent_keys[PK]:
+            table = key.split(".")[0]
+            temp = apply_binning_to_data_value_count(bin_value, data[key])
+            if table not in all_factor_pdfs:
+                all_factor_pdfs[table] = dict()
+            all_factor_pdfs[table][key] = temp / np.sum(temp)
+
+    all_factors = dict()
+    for table in all_factor_pdfs:
+        all_factors[table] = Factor(table, table_lens[table], list(all_factor_pdfs[table].keys()),
+                                    all_factor_pdfs[table], na_values[table])
+    return all_factors
+
 
 
 def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_bucket_bins=False):

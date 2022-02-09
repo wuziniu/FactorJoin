@@ -1,9 +1,9 @@
 import numpy as np
 import copy
-
+import os
+import pickle5 as pickle
 from Join_scheme.join_graph import get_join_hyper_graph, parse_query_all_join
 from Join_scheme.data_prepare import identify_key_values
-from Sampling.load_sample import load_sample_imdb_one_query
 
 
 class Factor:
@@ -654,4 +654,52 @@ class Bound_ensemble:
                 join_keys[table2].add(key2)
 
         return join_keys
+
+
+def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, join_keys, table_key_equivalent_group,
+                               SPERCENTAGE=10.0, qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/"):
+    qdir = qdir.format(SPERCENTAGE)
+    fpath = os.path.join(qdir, query_file_name)
+    with open(fpath, "rb") as f:
+        data = pickle.load(f)
+
+    conditional_factors = dict()
+    table_pdfs = dict()
+    filter_size = dict()
+    for i, alias in enumerate(data["all_aliases"]):
+        column = data["all_columns"][i]
+        alias = alias[0]
+        key = tables_alias[alias] + "." + column
+        cards = data["results"][i][0]
+        n_bins = table_buckets[tables_alias[alias]].bin_sizes[key]
+        pdfs = np.zeros(n_bins)
+        for (j, val) in cards:
+            if j is None:
+                j = 0
+            pdfs[j] += val
+        table_len = np.sum(pdfs)
+        print(alias+"."+column, table_len, pdfs)
+        if table_len == 0:
+            # no sample satisfy the filter, set it with a small value
+            #print("========================", alias+"."+column)
+            table_len = 1
+            pdfs = table_key_equivalent_group[tables_alias[alias]].pdfs[key]
+        else:
+            pdfs /= table_len
+        if alias not in table_pdfs:
+            table_pdfs[alias] = dict()
+            filter_size[alias] = table_len
+        table_pdfs[alias][key] = pdfs
+
+    for alias in tables_alias:
+        if alias in table_pdfs:
+            table_len = min(table_key_equivalent_group[tables_alias[alias]].table_len,
+                            filter_size[alias]/(SPERCENTAGE/100))
+            na_values = table_key_equivalent_group[tables_alias[alias]].na_values
+            conditional_factors[alias] = Factor(tables_alias[alias], table_len, list(table_pdfs[alias].keys()),
+                                                table_pdfs[alias], na_values)
+        else:
+            #TODO: ground-truth distribution
+            conditional_factors[alias] = table_key_equivalent_group[tables_alias[alias]]
+    return conditional_factors
 
