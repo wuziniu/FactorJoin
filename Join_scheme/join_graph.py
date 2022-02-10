@@ -140,15 +140,13 @@ def process_condition_join(cond, tables_all):
     right = cond[end:].strip()
     table1 = left.split(".")[0].strip().lower()
     if table1 in tables_all:
-        table1 = tables_all[table1]
-        left = table1 + "." + left.split(".")[-1].strip()
+        left = tables_all[table1] + "." + left.split(".")[-1].strip()
     else:
         return None, None, False, None
     if "." in right:
         table2 = right.split(".")[0].strip().lower()
         if table2 in tables_all:
-            table2 = tables_all[table2]
-            right = table2 + "." + right.split(".")[-1].strip()
+            right = tables_all[table2] + "." + right.split(".")[-1].strip()
             join = True
             join_keys[table1] = left
             join_keys[table2] = right
