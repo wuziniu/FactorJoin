@@ -4,9 +4,13 @@ import pickle
 import numpy as np
 import pandas as pd
 import time
+import sys
+import os
+
+sys.path.append("/Users/ziniuw/Desktop/research/Learned_QO/CE_scheme/")
 
 from Schemas.stats.schema import gen_stats_light_schema
-from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, Table_bucket
+from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, Table_bucket
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,21 @@ def read_table_hdf(table_obj):
         df_rows = df_rows.drop(table_obj.table_name + '.' + attribute, axis=1)
 
     return df_rows.apply(pd.to_numeric, errors="ignore")
+
+
+def convert_time_to_int(data_folder):
+    for file in os.listdir(data_folder):
+        if file.endswith(".csv"):
+            csv_file_location = data_folder + file
+            df_rows = pd.read_csv(csv_file_location)
+            for attribute in df_rows.columns:
+                if "Date" in attribute:
+                    if df_rows[attribute].values.dtype == 'object':
+                        new_value = []
+                        for value in df_rows[attribute].values:
+                            new_value.append(timestamp_transorform(value))
+                        df_rows[attribute] = new_value
+            df_rows.to_csv(csv_file_location, index=False)
 
 
 def read_table_csv(table_obj, csv_seperator=',', stats=True):
@@ -72,15 +91,10 @@ def generate_table_buckets(data, key_attrs, bin_sizes, bin_modes, optimal_bucket
                 temp_data = key_data[np.isin(key_data[:, 0], b1)]
                 if len(temp_data) == 0:
                     continue
-                """
-                if key1 == "postLinks.PostId":
-                    print(v1, np.max(np.unique(temp_data[:, 0], return_counts=True)[-1]),
-                          table_bucket.oned_bin_modes[key1][v1])
-                assert np.max(np.unique(temp_data[:, 0], return_counts=True)[-1]) == \
-                       table_bucket.oned_bin_modes[key1][v1], f"{key1} data error at {v1}, " \
-                                f"with {np.max(np.unique(temp_data[:, 0], return_counts=True)[-1])} and " \
-                                                              f"{table_bucket.oned_bin_modes[key1][v1]}."
-                """
+                assert np.max(np.unique(temp_data[:, 0], return_counts=True)[-1]) == table_bucket.oned_bin_modes[key1][
+                    v1], f"{key1} data error at {v1}, with " \
+                         f"{np.max(np.unique(temp_data[:, 0], return_counts=True)[-1])} and " \
+                         f"{table_bucket.oned_bin_modes[key1][v1]}."
                 for v2, b2 in enumerate(optimal_buckets[key2].bins):
                     temp_data2 = copy.deepcopy(temp_data[np.isin(temp_data[:, 1], b2)])
                     if len(temp_data2) == 0:
@@ -94,11 +108,12 @@ def generate_table_buckets(data, key_attrs, bin_sizes, bin_modes, optimal_bucket
     return table_buckets
 
 
-def process_stats_data(data_path, model_folder, n_bins=500, save_bucket_bins=False):
+def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False):
     """
     Preprocessing stats data and generate optimal bucket
     :param data_path: path to stats data folder
     :param n_bins: number of bins (the actually number of bins returned will be smaller than this)
+    :param bucket_method: choose between "sub_optimal" and "greedy". Please refer to binning.py for details.
     :param save_bucket_bins: Set to true for dynamic environment, the default is False for static environment
     :return:
     """
@@ -117,7 +132,6 @@ def process_stats_data(data_path, model_folder, n_bins=500, save_bucket_bins=Fal
         null_values[table_name] = dict()
         key_attrs[table_name] = []
         df_rows = read_table_csv(table_obj, stats=True)
-
         for attr in df_rows.columns:
             if attr in all_keys:
                 key_data[attr] = df_rows[attr].values
@@ -134,7 +148,6 @@ def process_stats_data(data_path, model_folder, n_bins=500, save_bucket_bins=Fal
                 key_attrs[table_name].append(attr)
             else:
                 temp = df_rows[attr].values
-                # print(table_obj.table_name, temp[:10])
                 null_values[table_name][attr] = np.nanmin(temp) - 100
                 temp[np.isnan(temp)] = null_values[table_name][attr]
         data[table_name] = df_rows
@@ -150,9 +163,13 @@ def process_stats_data(data_path, model_folder, n_bins=500, save_bucket_bins=Fal
         for K in equivalent_keys[PK]:
             group_data[K] = key_data[K]
             group_sample_rate[K] = sample_rate[K]
-        temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys)
-        # if PK == "posts.Id":
-        #   print(optimal_bucket.buckets["votes.PostId"].bin_modes)
+        if bucket_method == "greedy":
+            temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+        elif bucket_method == "sub_optimal":
+            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+        else:
+            assert False, f"unrecognized bucketization method: {bucket_method}"
+
         binned_data.update(temp_data)
         for K in equivalent_keys[PK]:
             optimal_buckets[K] = optimal_bucket
@@ -161,8 +178,6 @@ def process_stats_data(data_path, model_folder, n_bins=500, save_bucket_bins=Fal
                 bin_size[temp_table_name] = dict()
             bin_size[temp_table_name][K] = len(optimal_bucket.bins)
             all_bin_modes[K] = np.asarray(optimal_bucket.buckets[K].bin_modes)
-        # if PK == "posts.Id":
-        #   print(all_bin_modes["votes.PostId"])
 
     table_buckets = generate_table_buckets(data, key_attrs, bin_size, all_bin_modes, optimal_buckets)
 
@@ -176,5 +191,3 @@ def process_stats_data(data_path, model_folder, n_bins=500, save_bucket_bins=Fal
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
 
     return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size
-
-
