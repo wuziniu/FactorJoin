@@ -15,15 +15,19 @@ if __name__ == '__main__':
 
     # generate models/ensembles
     parser.add_argument('--generate_models', help='Trains BNs on dataset', action='store_true')
-    parser.add_argument('--data_path', default='stats_simplified/{}.csv')
-    parser.add_argument('--model_path', default='../CE_scheme_models')
+    parser.add_argument('--data_path', default='/home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv')
+    parser.add_argument('--model_path', default='/home/ubuntu/data_CE/CE_scheme_models/')
     parser.add_argument('--n_bins', type=int, default=200, help="The bin size on the id attributes")
+    parser.add_argument('--bucket_method', type=str, default="greedy", help="The bin size on the id attributes")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
 
     # evaluation
     parser.add_argument('--evaluate', help='Evaluates models to compute cardinality bound', action='store_true')
-    parser.add_argument('--model_location', nargs='+', default='../CE_scheme_models')
-    parser.add_argument('--query_file_location', default='workloads/stats_CEB/stats_CEB.sql')
+    parser.add_argument('--model_location', nargs='+', default='/home/ubuntu/data_CE/CE_scheme_models/model_stats_200.pkl')
+    parser.add_argument('--query_file_location', default='/home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql')
+    
+    # get all sub_plan_query cardinalities
+    parser.add_argument('--predict', help='estimate all sub_plan_query cardinalities', action='store_true')
 
     # log level
     parser.add_argument('--log_level', type=int, default=logging.DEBUG)
@@ -44,5 +48,8 @@ if __name__ == '__main__':
     print(args.dataset)
     if args.dataset == 'stats':
         if args.generate_models:
-            train_one_stats(args.data_path, args.model_path, args.n_bins, args.save_bucket_bins)
+            start_time = time.time()
+            train_one_stats(args.dataset, args.data_path, args.model_path, args.n_bins, args.bucket_method, args.save_bucket_bins)
+            end_time = time.time()
+            print(f"Training completed: total training time is {end_time - start_time}")
 

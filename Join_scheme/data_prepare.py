@@ -166,7 +166,7 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         if bucket_method == "greedy":
             temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         elif bucket_method == "sub_optimal":
-            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys)
         else:
             assert False, f"unrecognized bucketization method: {bucket_method}"
 

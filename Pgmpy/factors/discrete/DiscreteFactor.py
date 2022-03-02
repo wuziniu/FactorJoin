@@ -3,7 +3,7 @@ from __future__ import division
 from itertools import product
 from collections import namedtuple
 from warnings import warn
-import numba
+#import numba
 #from numba import jit    #If your model is really large, use numba, otherwise don't use it
 import numpy as np
 

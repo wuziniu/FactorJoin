@@ -43,9 +43,9 @@ def test_trained_BN_on_stats(bn, t_name):
         assert min(pred, np.sum(id_probs)) / max(pred, np.sum(id_probs)) <= 1.5, "query_id_prob is incorrect"
 
 
-def train_one_stats(data_path, model_folder, n_bins=200, save_bucket_bins=False):
+def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method="greedy", save_bucket_bins=False):
     data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size = process_stats_data(data_path,
-                                                                            model_folder, n_bins, save_bucket_bins)
+                                                            model_folder, n_bins, bucket_method, save_bucket_bins)
     all_bns = dict()
     for table in schema.tables:
         t_name = table.table_name
@@ -57,9 +57,6 @@ def train_one_stats(data_path, model_folder, n_bins=200, save_bucket_bins=False)
         #pickle.dump(bn, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
 
     be = Bound_ensemble(all_bns, table_buckets, schema)
-    model_path = model_folder + f"model_{n_bins}.pkl"
+    model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
-
-
-
