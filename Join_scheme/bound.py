@@ -95,28 +95,6 @@ class Bound_ensemble:
             res[table] = Factor(id_attrs, probs, new_id_attrs)
         return res
 
-    def eliminate_one_key_group_general(self, tables, key_group, factors):
-        rest_groups = dict()
-        rest_group_tables = dict()
-        for table in tables:
-            assert key_group in factors[table].equivalent_variables
-            temp = copy.deepcopy(factors[table].equivalent_variables)
-            temp.remove(key_group)
-            for keys in temp:
-                if keys in rest_groups:
-                    assert factors[table].cardinalities[keys] == rest_groups[keys]
-                    rest_group_tables[keys].append(table)
-                else:
-                    rest_groups[keys] = factors[table].cardinalities[keys]
-                    rest_group_tables[keys] = [table]
-
-        new_factor_variables = []
-        new_factor_cardinalities = []
-        for key in rest_groups:
-            new_factor_variables.append(key)
-            new_factor_cardinalities.append(rest_groups[key])
-        new_factor_pdf = np.zeros(tuple(new_factor_cardinalities))
-
     def eliminate_one_key_group(self, tables, key_group, factors, relevant_keys):
         """This version only supports 2D distributions"""
         rest_group = None
@@ -144,30 +122,33 @@ class Bound_ensemble:
             bin_modes = self.table_buckets[table].oned_bin_modes[relevant_keys[key_group][table]]
             all_probs_eliminated.append(factors[table].pdfs)
             all_modes_eliminated.append(np.minimum(bin_modes, factors[table].pdfs))
-
         if rest_group:
             new_factor_pdf = np.zeros(rest_group_cardinalty)
         else:
             return self.compute_bound_oned(all_probs_eliminated, all_modes_eliminated)
 
         for i in range(rest_group_cardinalty):
+            rest_group_probs_eliminated = []
+            rest_group_modes_eliminated = []
             for table in rest_group_tables:
+
                 idx_f = factors[table].equivalent_variables.index(key_group)
                 idx_b = self.table_buckets[table].id_attributes.index(relevant_keys[key_group][table])
                 bin_modes = self.table_buckets[table].twod_bin_modes[relevant_keys[key_group][table]]
                 if idx_f == 0 and idx_b == 0:
-                    all_probs_eliminated.append(factors[table].pdfs[:, i])
-                    all_modes_eliminated.append(np.minimum(bin_modes[:, i], factors[table].pdfs[:, i]))
+                    rest_group_probs_eliminated.append(factors[table].pdfs[:, i])
+                    rest_group_modes_eliminated.append(np.minimum(bin_modes[:, i], factors[table].pdfs[:, i]))
                 elif idx_f == 0 and idx_b == 1:
-                    all_probs_eliminated.append(factors[table].pdfs[:, i])
-                    all_modes_eliminated.append(np.minimum(bin_modes[i, :], factors[table].pdfs[:, i]))
+                    rest_group_probs_eliminated.append(factors[table].pdfs[:, i])
+                    rest_group_modes_eliminated.append(np.minimum(bin_modes[i, :], factors[table].pdfs[:, i]))
                 elif idx_f == 1 and idx_b == 0:
-                    all_probs_eliminated.append(factors[table].pdfs[i, :])
-                    all_modes_eliminated.append(np.minimum(bin_modes[:, i], factors[table].pdfs[i, :]))
+                    rest_group_probs_eliminated.append(factors[table].pdfs[i, :])
+                    rest_group_modes_eliminated.append(np.minimum(bin_modes[:, i], factors[table].pdfs[i, :]))
                 else:
-                    all_probs_eliminated.append(factors[table].pdfs[i, :])
-                    all_modes_eliminated.append(np.minimum(bin_modes[i, :], factors[table].pdfs[i, :]))
-            new_factor_pdf[i] = self.compute_bound_oned(all_probs_eliminated, all_modes_eliminated)
+                    rest_group_probs_eliminated.append(factors[table].pdfs[i, :])
+                    rest_group_modes_eliminated.append(np.minimum(bin_modes[i, :], factors[table].pdfs[i, :]))
+            new_factor_pdf[i] = self.compute_bound_oned(all_probs_eliminated + rest_group_probs_eliminated,
+                                                        all_modes_eliminated + rest_group_modes_eliminated)
 
         for table in rest_group_tables:
             factors[table] = Factor([rest_group], new_factor_pdf, [rest_group])

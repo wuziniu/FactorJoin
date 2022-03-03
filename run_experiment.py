@@ -26,9 +26,6 @@ if __name__ == '__main__':
     parser.add_argument('--model_location', nargs='+', default='/home/ubuntu/data_CE/CE_scheme_models/model_stats_200.pkl')
     parser.add_argument('--query_file_location', default='/home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql')
     
-    # get all sub_plan_query cardinalities
-    parser.add_argument('--predict', help='estimate all sub_plan_query cardinalities', action='store_true')
-
     # log level
     parser.add_argument('--log_level', type=int, default=logging.DEBUG)
 
@@ -52,4 +49,7 @@ if __name__ == '__main__':
             train_one_stats(args.dataset, args.data_path, args.model_path, args.n_bins, args.bucket_method, args.save_bucket_bins)
             end_time = time.time()
             print(f"Training completed: total training time is {end_time - start_time}")
+            
+        elif args.evaluate:
+            
 

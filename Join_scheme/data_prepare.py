@@ -91,10 +91,10 @@ def generate_table_buckets(data, key_attrs, bin_sizes, bin_modes, optimal_bucket
                 temp_data = key_data[np.isin(key_data[:, 0], b1)]
                 if len(temp_data) == 0:
                     continue
-                assert np.max(np.unique(temp_data[:, 0], return_counts=True)[-1]) == table_bucket.oned_bin_modes[key1][
-                    v1], f"{key1} data error at {v1}, with " \
-                         f"{np.max(np.unique(temp_data[:, 0], return_counts=True)[-1])} and " \
-                         f"{table_bucket.oned_bin_modes[key1][v1]}."
+                #assert np.max(np.unique(temp_data[:, 0], return_counts=True)[-1]) == table_bucket.oned_bin_modes[key1][
+                 #   v1], f"{key1} data error at {v1}, with " \
+                  #       f"{np.max(np.unique(temp_data[:, 0], return_counts=True)[-1])} and " \
+                   #      f"{table_bucket.oned_bin_modes[key1][v1]}."
                 for v2, b2 in enumerate(optimal_buckets[key2].bins):
                     temp_data2 = copy.deepcopy(temp_data[np.isin(temp_data[:, 1], b2)])
                     if len(temp_data2) == 0:
