@@ -3,6 +3,7 @@ import logging
 import os
 import time
 
+from Join_scheme.data_prepare import convert_time_to_int
 from Evaluation.training import train_one_stats
 from Evaluation.testing import test_on_stats
 
@@ -10,6 +11,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', default='stats', help='Which dataset to be used')
+    
+    # preprocess data
+    parser.add_argument('--preprocess_data', help='Converting date into int', action='store_true')
+    parser.add_argument('--data_folder',
+                        default='/home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/')
+    
 
     # generate models/ensembles
     parser.add_argument('--generate_models', help='Trains BNs on dataset', action='store_true')
@@ -25,7 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--model_location', nargs='+',
                         default='/home/ubuntu/data_CE/CE_scheme_models/model_stats_greedy_200.pkl')
     parser.add_argument('--query_file_location',
-                        default='/home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql')
+                        default='/home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql')
     parser.add_argument('--save_folder',
                         default='/home/ubuntu/data_CE/CE_scheme_models/')
     
@@ -47,7 +54,10 @@ if __name__ == '__main__':
 
     print(args.dataset)
     if args.dataset == 'stats':
-        if args.generate_models:
+        if args.preprocess_data:
+            convert_time_to_int(args.data_folder)
+        
+        elif args.generate_models:
             start_time = time.time()
             train_one_stats(args.dataset, args.data_path, args.model_path, args.n_bins, args.bucket_method, args.save_bucket_bins)
             end_time = time.time()
