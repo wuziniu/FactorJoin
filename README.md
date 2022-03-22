@@ -77,9 +77,19 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   save_folder: where to save the prediction
   
-  ### At last, see the end-to-end performance inside Postgres
+  ### End-to-end performance
+  First, make sure you set up the docker environment for hacked Postgres: https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark
   
-  Follow the readme in https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark to set up the hacked Postgres. Upload the saved file of prediction is the designated location, set the correct path to run send_query.py.
+  Then run the following command to send the estimated results into docker container
+  ```
+  sudo docker cp /home/ubuntu/data_CE/CE_scheme_models/[method].txt ce-benchmark:/var/lib/pgsql/13.1/data/[method].txt
+  ```
+  Execute the follow command to get the end-to-end results:
+  ```
+  python send_query.py --dataset stats
+         --method_name [method].txt
+         --query_file /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql
+  ```
   
   In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect the postgres cache and make fair comparisons among all methods.
   
