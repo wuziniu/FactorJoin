@@ -23,7 +23,8 @@ class Bucket:
 class Table_bucket:
     """
     The class of bucketization for all key attributes in a table.
-    Supporting more than three dimensional bin modes requires simplifying the causal structure
+    Supporting more than three dimensional bin modes requires simplifying the causal structure, which is left as a
+    future work.
     """
 
     def __init__(self, table_name, id_attributes, bin_sizes, bin_modes=None):
@@ -92,7 +93,6 @@ class Bucket_group:
             for i, b in enumerate(cumulative_bin):
                 count += len(data[key][np.isin(data[key], b)])
                 res[key][np.isin(data[key], b)] = i
-
         self.bins = cumulative_bin
 
         for key in data:
@@ -107,7 +107,6 @@ class Bucket_group:
                 bin_modes = np.asarray(self.buckets[key].bin_modes)
                 bin_modes[bin_modes != 1] = bin_modes[bin_modes != 1] / self.sample_rate[key]
                 self.buckets[key].bin_modes = bin_modes
-
         return res
 
     def bucketize_PK(self, data):
@@ -116,12 +115,7 @@ class Bucket_group:
         for i, b in enumerate(self.bins):
             res[np.isin(data, b)] = i
             remaining_data = np.setdiff1d(remaining_data, b)
-        if len(remaining_data) != 0:
-            self.bins.append(list(remaining_data))
-            for key in self.buckets:
-                if key not in self.primary_keys:
-                    self.buckets[key].bin_modes = np.append(self.buckets[key].bin_modes, 0)
-        res[np.isin(data, remaining_data)] = len(self.bins)
+        res[np.isin(data, remaining_data)] = -1
         return res
 
 
@@ -466,7 +460,7 @@ def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_k
         if key not in primary_keys:
             unique_values[key] = np.unique(data[key], return_counts=True)
 
-    start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]))
+    start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]), True)
     rest_buckets = dict()
     for key in data:
         if key == start_key or key in primary_keys:

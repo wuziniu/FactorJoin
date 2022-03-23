@@ -7,7 +7,7 @@ import time
 
 from Schemas.imdb.schema import gen_imdb_schema
 from Schemas.stats.schema import gen_stats_light_schema
-from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, Table_bucket
+from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, Table_bucket
 from Join_scheme.binning import apply_binning_to_data_value_count
 
 logger = logging.getLogger(__name__)
