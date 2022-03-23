@@ -342,14 +342,11 @@ def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=
         else:
             curr_pk.append(key)
     key_orders = [key_orders[i] for i in np.argsort(data_lens)[::-1]]
-    print(key_orders)
-    print(curr_pk)
     remaining_bins = n_bins
     start_key = key_orders[0]
     curr_bins = None
     curr_bin_means = None
     for key in key_orders:
-        print(key)
         if key == key_orders[-1]:
             # least key value use up all remaining bins, otherwise use half of it
             assign_bins = remaining_bins
@@ -361,7 +358,6 @@ def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=
             curr_bins, curr_bin_means = apply_binning_to_data(curr_bins, curr_bin_means, data[key],
                                                               data[start_key], assign_bins,
                                                               unique_values[key][0], unique_values[key][1])
-        print(len(curr_bins), len(curr_bin_means))
         remaining_bins = n_bins - len(curr_bins)
 
     new_data, best_buckets, curr_bins = bin_all_data_with_existing_binning(curr_bins, data, sample_rate, curr_pk,
@@ -432,6 +428,52 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[]):
     best_buckets = Bucket_group(best_buckets, best_start_key, sample_rate, primary_keys=primary_keys)
     new_data = best_buckets.bucketize(data)
     return new_data, best_buckets
+
+
+def naive_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=True):
+    """
+        Perform naive bucketization on a group of equivalent join keys (i.e. equal width binning)
+        :param data: a dict of (potentially sampled) table data of the keys
+                     the keys of this dict are one group of equivalent join keys
+        :param sample_rate: the sampling rate the data, could be all 1 if no sampling is performed
+        :param n_bins: how many bins can we allocate
+        :param primary_keys: the primary keys in the equivalent group since we don't need to bucketize PK.
+        :param return_data: return discretized data.
+        :return: new data, where the keys are bucketized
+                 the mode of each bucket
+    """
+    key_orders = []
+    data_lens = []
+    new_data = dict()
+    for key in data:
+        key_orders.append(key)
+        data_lens.append(len(data[key]))
+    key_orders = [key_orders[i] for i in np.argsort(data_lens)[::-1]]
+    best_buckets = dict()
+    start_key = key_orders[0]
+    start_key_bin_mode = []
+    data_start_key = np.sort(data[start_key])
+    _, curr_bins = np.histogram(data_start_key, bins=n_bins)
+
+    for key in key_orders:
+        key_bin_mode = []
+        data_key = np.sort(data[key])
+        temp_data_key = copy.deepcopy(data[key])
+        curr_bins[0] = min(data_key[0]-0.1, curr_bins[0])
+        curr_bins[-1] = max(data_key[-1] + 0.1, curr_bins[-1])
+        for i in range(len(curr_bins) - 1):
+            start = curr_bins[i]
+            end = curr_bins[i + 1]
+            bin_mode = stats.mode(data_key[np.where((data_key >= start) & (data_key < end))]).count[0]
+            temp_data_key[np.where((temp_data_key >= start) & (temp_data_key < end))] = i
+            key_bin_mode.append(bin_mode/sample_rate[key])
+        best_buckets[key] = Bucket(key, [], key_bin_mode)
+        new_data[key] = temp_data_key
+    best_buckets = Bucket_group(best_buckets, start_key, sample_rate, curr_bins[:-1], primary_keys=primary_keys)
+    if return_data:
+        return new_data, best_buckets
+    else:
+        return best_buckets
 
 
 def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_keys=[]):

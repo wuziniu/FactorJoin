@@ -10,7 +10,8 @@ import os
 sys.path.append("/Users/ziniuw/Desktop/research/Learned_QO/CE_scheme/")
 
 from Schemas.stats.schema import gen_stats_light_schema
-from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, Table_bucket
+from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, \
+                                naive_bucketize, Table_bucket
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,43 @@ def read_table_csv(table_obj, csv_seperator=',', stats=True):
 
 
 def generate_table_buckets(data, key_attrs, bin_sizes, bin_modes, optimal_buckets):
+    table_buckets = dict()
+    for table in data:
+        table_data = data[table]
+        table_bucket = Table_bucket(table, key_attrs[table], bin_sizes[table])
+        for key in key_attrs[table]:
+            if key in bin_modes and len(bin_modes[key]) != 0:
+                table_bucket.oned_bin_modes[key] = bin_modes[key]
+            else:
+                # this is a primary key
+                table_bucket.oned_bin_modes[key] = np.ones(table_bucket.bin_sizes[key])
+        # getting mode for 2D bins
+        if len(key_attrs[table]) == 2:
+            key1 = key_attrs[table][0]
+            key2 = key_attrs[table][1]
+            res1 = np.zeros((table_bucket.bin_sizes[key1], table_bucket.bin_sizes[key2]))
+            res2 = np.zeros((table_bucket.bin_sizes[key1], table_bucket.bin_sizes[key2]))
+            key_data = np.stack((table_data[key1], table_data[key2]), axis=1)
+            assert table_bucket.bin_sizes[key1] == len(optimal_buckets[key1].bins)
+            assert table_bucket.bin_sizes[key2] == len(optimal_buckets[key2].bins)
+            for v1, b1 in enumerate(optimal_buckets[key1].bins):
+                temp_data = key_data[key_data[:, 0] == v1]
+                if len(temp_data) == 0:
+                    continue
+                for v2, b2 in enumerate(optimal_buckets[key2].bins):
+                    temp_data2 = copy.deepcopy(temp_data[temp_data[:, 1] == v2])
+                    if len(temp_data2) == 0:
+                        continue
+                    res1[v1, v2] = np.max(np.unique(temp_data2[:, 0], return_counts=True)[-1])
+                    res2[v1, v2] = np.max(np.unique(temp_data2[:, 1], return_counts=True)[-1])
+            table_bucket.twod_bin_modes[key1] = res1
+            table_bucket.twod_bin_modes[key2] = res2
+        table_buckets[table] = table_bucket
+
+    return table_buckets
+
+
+def generate_table_buckets2(data, key_attrs, bin_sizes, bin_modes, optimal_buckets):
     table_buckets = dict()
     for table in data:
         table_data = data[table]
@@ -167,6 +205,8 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
             temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         elif bucket_method == "sub_optimal":
             temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys)
+        elif bucket_method == "naive":
+            temp_data, optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         else:
             assert False, f"unrecognized bucketization method: {bucket_method}"
 
@@ -179,12 +219,12 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
             bin_size[temp_table_name][K] = len(optimal_bucket.bins)
             all_bin_modes[K] = np.asarray(optimal_bucket.buckets[K].bin_modes)
 
-    table_buckets = generate_table_buckets(data, key_attrs, bin_size, all_bin_modes, optimal_buckets)
-
     for K in binned_data:
         temp_table_name = K.split(".")[0]
         temp = data[temp_table_name][K].values
         temp[temp >= 0] = binned_data[K]
+
+    table_buckets = generate_table_buckets(data, key_attrs, bin_size, all_bin_modes, optimal_buckets)
 
     if save_bucket_bins:
         with open(model_folder + f"/buckets.pkl") as f:
