@@ -89,6 +89,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   python send_query.py --dataset stats
          --method_name [method].txt
          --query_file /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql
+         --save_folder /home/ubuntu/data_CE/stats_CEB/
   ```
   
   In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect the postgres cache and make fair comparisons among all methods.
