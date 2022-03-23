@@ -464,8 +464,12 @@ def naive_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=T
         for i in range(len(curr_bins) - 1):
             start = curr_bins[i]
             end = curr_bins[i + 1]
-            bin_mode = stats.mode(data_key[np.where((data_key >= start) & (data_key < end))]).count[0]
-            temp_data_key[np.where((temp_data_key >= start) & (temp_data_key < end))] = i
+            idx = np.where((data_key >= start) & (data_key < end))[0]
+            if len(idx) == 0:
+                bin_mode = 0
+            else:
+                bin_mode = stats.mode(data_key[idx]).count[0]
+                temp_data_key[idx] = i
             key_bin_mode.append(bin_mode/sample_rate[key])
         best_buckets[key] = Bucket(key, [], key_bin_mode)
         new_data[key] = temp_data_key
