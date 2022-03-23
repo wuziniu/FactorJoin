@@ -3,6 +3,7 @@ import copy
 from scipy import stats
 import jenkspy
 
+
 class Bucket:
     """
     The class of bucketization of a key attribute
@@ -25,15 +26,14 @@ class Table_bucket:
     Supporting more than three dimensional bin modes requires simplifying the causal structure
     """
 
-    def __init__(self, table_name, id_attributes, bin_sizes, oned_bin_modes=None):
+    def __init__(self, table_name, id_attributes, bin_sizes, bin_modes=None):
         self.table_name = table_name
         self.id_attributes = id_attributes
         self.bin_sizes = bin_sizes
-        if oned_bin_modes:
-            self.oned_bin_modes = oned_bin_modes
+        if bin_modes:
+            self.bin_modes = bin_modes
         else:
-            self.oned_bin_modes = dict()
-        self.twod_bin_modes = dict()
+            self.bin_modes = dict()
 
 
 class Bucket_group:
@@ -107,6 +107,7 @@ class Bucket_group:
                 bin_modes = np.asarray(self.buckets[key].bin_modes)
                 bin_modes[bin_modes != 1] = bin_modes[bin_modes != 1] / self.sample_rate[key]
                 self.buckets[key].bin_modes = bin_modes
+
         return res
 
     def bucketize_PK(self, data):
@@ -156,23 +157,16 @@ def identify_key_values(schema):
     return all_keys, equivalent_keys
 
 
-def equal_freq_binning(name, data, n_bins, data_len):
+def equal_freq_binning(name, data, n_bins, data_len, return_bucket=True):
     uniques, counts = data
-    if len(uniques) <= n_bins:
-        bins = []
-        bin_means = []
-
-        for i, uni in enumerate(uniques):
-            bins.append([uni])
-            bin_means.append(counts[i])
-        return bins, bin_means
-
     unique_counts, count_counts = np.unique(counts, return_counts=True)
     idx = np.argsort(unique_counts)
     unique_counts = unique_counts[idx]
     count_counts = count_counts[idx]
 
     bins = []
+    bin_modes = []
+    bin_vars = []
     bin_means = []
 
     bin_freq = data_len / n_bins
@@ -183,18 +177,23 @@ def equal_freq_binning(name, data, n_bins, data_len):
         cur_freq += count_counts[i] * uni_c
         cur_bin.append(uniques[np.where(counts == uni_c)[0]])
         cur_bin_count.extend([uni_c] * count_counts[i])
-        if (cur_freq >= bin_freq) or (i == (len(unique_counts) - 1)):
+        if (cur_freq > bin_freq) or (i == (len(unique_counts) - 1)):
             bins.append(np.concatenate(cur_bin))
             cur_bin_count = np.asarray(cur_bin_count)
+            bin_modes.append(uni_c)
             bin_means.append(np.mean(cur_bin_count))
+            bin_vars.append(np.var(cur_bin_count))
             cur_freq = 0
             cur_bin = []
             cur_bin_count = []
     assert len(uniques) == sum([len(b) for b in bins]), f"some unique values missed or duplicated"
-    return bins, bin_means
+    if return_bucket:
+        return Bucket(name, bins, bin_modes, bin_vars, bin_means)
+    else:
+        return bins, bin_means
 
 
-def apply_binning_to_data(bins, bin_means, n_bins, data, start_key_data, uniques, counts):
+def apply_binning_to_data(bins, bin_means, data, start_key_data, n_bins, uniques, counts):
     # apply one greedy binning step based on existing bins
     unique_remains = np.setdiff1d(uniques, np.concatenate(bins))
     if len(unique_remains) != 0:
@@ -213,7 +212,7 @@ def apply_binning_to_data(bins, bin_means, n_bins, data, start_key_data, uniques
                 else:
                     idx = temp_idx
             temp_unique = unique_remain[count_remain == u]
-            bins[idx] = np.concatenate((bins[idx], temp_unique))   #modifying bins in place
+            bins[idx] = np.concatenate((bins[idx], temp_unique))  # modifying bins in place
 
     bin_vars = []
     temp_bin_means = []
@@ -221,7 +220,7 @@ def apply_binning_to_data(bins, bin_means, n_bins, data, start_key_data, uniques
         idx = np.where(np.isin(uniques, bin) == 1)[0]
         if len(idx) != 0:
             bin_vars.append(np.var(counts[idx]))
-            temp_bin_means.append(np.means(counts[idx]))
+            temp_bin_means.append(np.mean(counts[idx]))
         else:
             bin_vars.append(0)
             temp_bin_means.append(1)
@@ -237,7 +236,7 @@ def apply_binning_to_data(bins, bin_means, n_bins, data, start_key_data, uniques
         else:
             curr_bin_data = data[np.isin(data, bin)]
             curr_start_key_data = start_key_data[np.isin(start_key_data, bin)]
-            curr_bins, curr_bin_means = divide_bin(bin, curr_bin_data, assign_nbins[i]+1, curr_start_key_data)
+            curr_bins, curr_bin_means = divide_bin(bin, curr_bin_data, assign_nbins[i] + 1, curr_start_key_data)
             new_bins.extend(curr_bins)
             new_bin_means.extend(curr_bin_means)
 
@@ -248,12 +247,12 @@ def assign_bins_by_var(n_bins, bin_vars, bin_means, small_threshold=0.2, large_t
     assign_nbins = np.zeros(len(bin_vars))
     remaining_nbins = n_bins
     idx = np.argsort(bin_vars)[::-1]
-    if bin_vars[idx[0]]/bin_means[idx[0]] <= small_threshold:
+    if bin_vars[idx[0]] / bin_means[idx[0]] <= small_threshold:
         return assign_nbins
 
     while remaining_nbins > 0:
         for i in range(len(assign_nbins)):
-            normalized_var = bin_vars[idx[i]]/bin_means[idx[i]]
+            normalized_var = bin_vars[idx[i]] / bin_means[idx[i]]
             if normalized_var >= large_threshold:
                 assign_nbins[i] += min(remaining_nbins, 2)
                 remaining_nbins -= min(remaining_nbins, 2)
@@ -267,7 +266,10 @@ def assign_bins_by_var(n_bins, bin_vars, bin_means, small_threshold=0.2, large_t
 
 def divide_bin(bin, curr_bin_data, n_bins, start_key_data):
     # divide one bin into multiple bins to minimize the variance of curr_bin_data
-    uniques, counts = np.unique(curr_bin_data)
+    uniques, counts = np.unique(curr_bin_data, return_counts=True)
+    if len(uniques) == 0:
+        return [], []
+
     if len(uniques) <= n_bins:
         new_bins = []
         bin_means = []
@@ -278,11 +280,19 @@ def divide_bin(bin, curr_bin_data, n_bins, start_key_data):
             remaining_values = np.setdiff1d(remaining_values, np.asarray([uni]))
 
         # randomly assign the remaining index to some bins
-        assign_idx = np.random.randint(0, len(new_bins), size=len(remaining_values))
-        for i in range(len(new_bins)):
-            new_bins[i].extend(list(remaining_values[assign_idx == i]))
-            new_bins[i] = np.asarray(new_bins[i])
-            bin_means.append(np.mean(start_key_data[np.isin(start_key_data, new_bins[i])]))
+        if len(remaining_values) > 0:
+            assign_idx = np.random.randint(0, len(new_bins), size=len(remaining_values))
+            for i in range(len(new_bins)):
+                new_bins[i].extend(list(remaining_values[assign_idx == i]))
+                new_bins[i] = np.asarray(new_bins[i])
+
+        for bin in new_bins:
+            curr_bin_data = start_key_data[np.isin(start_key_data, bin)]
+            if len(curr_bin_data) == 0:
+                bin_means.append(0)
+            else:
+                _, count = np.unique(curr_bin_data, return_counts=True)
+                bin_means.append(np.mean(count))
         return new_bins, bin_means
 
     idx = np.argsort(counts)
@@ -294,16 +304,24 @@ def divide_bin(bin, curr_bin_data, n_bins, start_key_data):
     breaks[-1] += 0.01
     new_bins = []
     bin_means = []
-    remaining_values = bin
+    remaining_values = np.asarray(bin)
     for i in range(1, len(breaks)):
-        idx = np.where((breaks[i-1] <= counts) & (counts < breaks[i]))[0]
+        idx = np.where((breaks[i - 1] <= counts) & (counts < breaks[i]))[0]
         new_bins.append(uniques[idx])
         remaining_values = np.setdiff1d(remaining_values, uniques[idx])
 
-    assign_idx = np.random.randint(0, len(new_bins), size=len(remaining_values))
-    for i in range(len(new_bins)):
-        new_bins[i] = np.concatenate(new_bins[i], remaining_values[assign_idx == i])
-        bin_means.append(np.mean(start_key_data[np.isin(start_key_data, new_bins[i])]))
+    if len(remaining_values) > 0:
+        assign_idx = np.random.randint(0, len(new_bins), size=len(remaining_values))
+        for i in range(len(new_bins)):
+            new_bins[i] = np.concatenate((new_bins[i], remaining_values[assign_idx == i]))
+
+    for bin in new_bins:
+        curr_bin_data = start_key_data[np.isin(start_key_data, bin)]
+        if len(curr_bin_data) == 0:
+            bin_means.append(0)
+        else:
+            _, count = np.unique(curr_bin_data, return_counts=True)
+            bin_means.append(np.mean(count))
     return new_bins, bin_means
 
 
@@ -331,33 +349,104 @@ def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=
     unique_values = dict()
     key_orders = []
     data_lens = []
+    curr_pk = []
     for key in data:
         if key not in primary_keys:
             unique_values[key] = np.unique(data[key], return_counts=True)
             key_orders.append(key)
             data_lens.append(len(data[key]))
+        else:
+            curr_pk.append(key)
     key_orders = [key_orders[i] for i in np.argsort(data_lens)[::-1]]
-
+    print(key_orders)
+    print(curr_pk)
     remaining_bins = n_bins
     start_key = key_orders[0]
     curr_bins = None
     curr_bin_means = None
     for key in key_orders:
+        print(key)
         if key == key_orders[-1]:
             # least key value use up all remaining bins, otherwise use half of it
             assign_bins = remaining_bins
         else:
             assign_bins = remaining_bins // 2
         if key == start_key:
-            curr_bins, curr_bin_means = equal_freq_binning(key, unique_values[key], assign_bins, len(data[key]))
+            curr_bins, curr_bin_means = equal_freq_binning(key, unique_values[key], assign_bins, len(data[key]), False)
         else:
             curr_bins, curr_bin_means = apply_binning_to_data(curr_bins, curr_bin_means, data[key],
                                                               data[start_key], assign_bins,
                                                               unique_values[key][0], unique_values[key][1])
+        print(len(curr_bins), len(curr_bin_means))
         remaining_bins = n_bins - len(curr_bins)
 
-    new_data, best_buckets = bin_all_data_with_existing_binning(curr_bins, data, sample_rate, return_data)
-    best_buckets = Bucket_group(best_buckets, start_key, sample_rate, curr_bins, primary_keys=primary_keys)
+    new_data, best_buckets, curr_bins = bin_all_data_with_existing_binning(curr_bins, data, sample_rate, curr_pk,
+                                                                           return_data)
+    best_buckets = Bucket_group(best_buckets, start_key, sample_rate, curr_bins, primary_keys=curr_pk)
+    return new_data, best_buckets
+
+
+def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[]):
+    """
+    Perform sub-optimal bucketization on a group of equivalent join keys.
+    :param data: a dict of (potentially sampled) table data of the keys
+                 the keys of this dict are one group of equivalent join keys
+    :param sample_rate: the sampling rate the data, could be all 1 if no sampling is performed
+    :param n_bins: how many bins can we allocate
+    :param primary_keys: the primary keys in the equivalent group since we don't need to bucketize PK.
+    :return: new data, where the keys are bucketized
+             the mode of each bucket
+    """
+    unique_values = dict()
+    for key in data:
+        if key not in primary_keys:
+            unique_values[key] = np.unique(data[key], return_counts=True)
+
+    best_variance_score = np.infty
+    best_bin_len = 0
+    best_start_key = None
+    best_buckets = None
+    for start_key in data:
+        if start_key in primary_keys:
+            continue
+        start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]))
+        rest_buckets = dict()
+        for key in data:
+            if key == start_key or key in primary_keys:
+                continue
+            uniques = unique_values[key][0]
+            counts = unique_values[key][1]
+            rest_buckets[key] = Bucket(key, [], [0] * len(start_bucket.bins), [0] * len(start_bucket.bins),
+                                       [0] * len(start_bucket.bins), uniques)
+            for i, bin in enumerate(start_bucket.bins):
+                idx = np.where(np.isin(uniques, bin) == 1)[0]
+                if len(idx) != 0:
+                    bin_count = counts[idx]
+                    unique_bin_keys = uniques[idx]
+                    # unique_bin_count = np.unique(bin_count)
+                    # bin_count = np.concatenate([counts[counts == j] for j in unique_bin_count])
+                    # unique_bin_keys = np.concatenate([uniques[counts == j] for j in unique_bin_count])
+                    rest_buckets[key].rest_bins_remaining = np.setdiff1d(rest_buckets[key].rest_bins_remaining,
+                                                                         unique_bin_keys)
+                    rest_buckets[key].bin_modes[i] = np.max(bin_count)
+                    rest_buckets[key].bin_vars[i] = np.var(bin_count)
+                    rest_buckets[key].bin_means[i] = np.mean(bin_count)
+
+        rest_buckets[start_key] = start_bucket
+        var_score = compute_variance_score(rest_buckets)
+        if len(start_bucket.bins) > best_bin_len:
+            best_variance_score = var_score
+            best_start_key = start_key
+            best_buckets = rest_buckets
+            best_bin_len = len(start_bucket.bins)
+        elif len(start_bucket.bins) >= best_bin_len * 0.9 and var_score < best_variance_score:
+            best_variance_score = var_score
+            best_start_key = start_key
+            best_buckets = rest_buckets
+            best_bin_len = len(start_bucket.bins)
+
+    best_buckets = Bucket_group(best_buckets, best_start_key, sample_rate, primary_keys=primary_keys)
+    new_data = best_buckets.bucketize(data)
     return new_data, best_buckets
 
 
@@ -401,11 +490,26 @@ def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_k
     return new_data, best_buckets
 
 
-def bin_all_data_with_existing_binning(bins, data, sample_rate, return_data):
+def bin_all_data_with_existing_binning(bins, data, sample_rate, curr_pk, return_data):
     buckets = dict()
     new_data = dict()
     if return_data:
         new_data = copy.deepcopy(data)
+
+    for key in curr_pk:
+        bin_modes = [1 for i in range(len(bins))]
+        remaining_data = np.unique(data[key])
+        for i, bin in enumerate(bins):
+            if return_data:
+                new_data[key][np.isin(data[key], bin)] = i
+            remaining_data = np.setdiff1d(remaining_data, bin)
+        if len(remaining_data) != 0:
+            if return_data:
+                # assigning all remaining key values to the first bin
+                new_data[key][np.isin(data[key], remaining_data)] = 0
+            bins[0] = np.concatenate((bins[0], remaining_data))
+        buckets[key] = Bucket(key, bin_modes=bin_modes)
+
     for key in data:
         bin_modes = []
         for i, bin in enumerate(bins):
@@ -420,7 +524,8 @@ def bin_all_data_with_existing_binning(bins, data, sample_rate, return_data):
                 if return_data:
                     new_data[key][np.isin(data[key], bin)] = i
         buckets[key] = Bucket(key, bin_modes=bin_modes)
-    return new_data, buckets
+
+    return new_data, buckets, bins
 
 
 def apply_binning_to_data_value_count(bins, data):
@@ -432,3 +537,4 @@ def apply_binning_to_data_value_count(bins, data):
 
     res[0] += np.sum(np.isin(data, unique_remain))
     return res
+
