@@ -15,6 +15,7 @@ class Bucket:
         self.bin_modes = bin_modes
         self.bin_vars = bin_vars
         self.bin_means = bin_means
+        self.bin_width = [0] * len(bin_means)
         self.rest_bins_remaining = rest_bins_remaining
         if len(bins) != 0:
             assert len(bins) == len(bin_modes)
@@ -141,7 +142,7 @@ def identify_key_values(schema):
     return all_keys, equivalent_keys
 
 
-def equal_freq_binning(name, data, n_bins, data_len, return_bucket=True):
+def equal_freq_binning(name, data, n_bins, data_len, return_bucket=True, return_bin_means=False):
     uniques, counts = data
     unique_counts, count_counts = np.unique(counts, return_counts=True)
     idx = np.argsort(unique_counts)
@@ -152,11 +153,13 @@ def equal_freq_binning(name, data, n_bins, data_len, return_bucket=True):
     bin_modes = []
     bin_vars = []
     bin_means = []
+    bin_sizes = []
 
     bin_freq = data_len / n_bins
     cur_freq = 0
     cur_bin = []
     cur_bin_count = []
+    
     for i, uni_c in enumerate(unique_counts):
         cur_freq += count_counts[i] * uni_c
         cur_bin.append(uniques[np.where(counts == uni_c)[0]])
@@ -167,12 +170,16 @@ def equal_freq_binning(name, data, n_bins, data_len, return_bucket=True):
             bin_modes.append(uni_c)
             bin_means.append(np.mean(cur_bin_count))
             bin_vars.append(np.var(cur_bin_count))
+            bin_sizes.append(len(cur_bin_count))
             cur_freq = 0
             cur_bin = []
             cur_bin_count = []
     assert len(uniques) == sum([len(b) for b in bins]), f"some unique values missed or duplicated"
     if return_bucket:
-        return Bucket(name, bins, bin_modes, bin_vars, bin_means)
+        bucket = Bucket(name, bins, bin_modes, bin_vars, bin_means)
+        if return_bin_means:
+            bucket.bin_width = bin_sizes
+        return bucket
     else:
         return bins, bin_means
 
@@ -366,7 +373,7 @@ def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=
     return new_data, best_buckets
 
 
-def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[]):
+def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_bin_means=False):
     """
     Perform sub-optimal bucketization on a group of equivalent join keys.
     :param data: a dict of (potentially sampled) table data of the keys
@@ -386,10 +393,13 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[]):
     best_bin_len = 0
     best_start_key = None
     best_buckets = None
+    all_bin_width = dict()
     for start_key in data:
         if start_key in primary_keys:
             continue
-        start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]), True)
+        start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]), 
+                                          True, return_bin_means)
+        
         rest_buckets = dict()
         for key in data:
             if key == start_key or key in primary_keys:
@@ -411,7 +421,7 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[]):
                     rest_buckets[key].bin_modes[i] = np.max(bin_count)
                     rest_buckets[key].bin_vars[i] = np.var(bin_count)
                     rest_buckets[key].bin_means[i] = np.mean(bin_count)
-
+                    rest_buckets[key].bin_width[i] = len(bin_count)
         rest_buckets[start_key] = start_bucket
         var_score = compute_variance_score(rest_buckets)
         if len(start_bucket.bins) >= best_bin_len * 1.1:

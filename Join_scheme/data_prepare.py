@@ -105,6 +105,43 @@ def generate_table_buckets(data, key_attrs, bin_sizes, bin_modes, optimal_bucket
     return table_buckets
 
 
+def generate_table_buckets_means(data, key_attrs, bin_sizes, all_bin_means, optimal_buckets):
+    table_buckets = dict()
+    for table in data:
+        table_data = data[table]
+        table_bucket = Table_bucket(table, key_attrs[table], bin_sizes[table])
+        for key in key_attrs[table]:
+            if key in all_bin_means and len(all_bin_means[key]) != 0:
+                table_bucket.oned_bin_modes[key] = all_bin_means[key]
+            else:
+                # this is a primary key
+                table_bucket.oned_bin_modes[key] = np.ones(table_bucket.bin_sizes[key])
+        # getting mode for 2D bins
+        if len(key_attrs[table]) == 2:
+            key1 = key_attrs[table][0]
+            key2 = key_attrs[table][1]
+            res1 = np.zeros((table_bucket.bin_sizes[key1], table_bucket.bin_sizes[key2]))
+            res2 = np.zeros((table_bucket.bin_sizes[key1], table_bucket.bin_sizes[key2]))
+            key_data = np.stack((table_data[key1], table_data[key2]), axis=1)
+            assert table_bucket.bin_sizes[key1] == len(optimal_buckets[key1].bins)
+            assert table_bucket.bin_sizes[key2] == len(optimal_buckets[key2].bins)
+            for v1, b1 in enumerate(optimal_buckets[key1].bins):
+                temp_data = key_data[key_data[:, 0] == v1]
+                if len(temp_data) == 0:
+                    continue
+                for v2, b2 in enumerate(optimal_buckets[key2].bins):
+                    temp_data2 = copy.deepcopy(temp_data[temp_data[:, 1] == v2])
+                    if len(temp_data2) == 0:
+                        continue
+                    res1[v1, v2] = np.mean(np.unique(temp_data2[:, 0], return_counts=True)[-1])
+                    res2[v1, v2] = np.mean(np.unique(temp_data2[:, 1], return_counts=True)[-1])
+            table_bucket.twod_bin_modes[key1] = res1
+            table_bucket.twod_bin_modes[key2] = res2
+        table_buckets[table] = table_bucket
+
+    return table_buckets
+
+
 def generate_table_buckets2(data, key_attrs, bin_sizes, bin_modes, optimal_buckets):
     table_buckets = dict()
     for table in data:
@@ -146,7 +183,8 @@ def generate_table_buckets2(data, key_attrs, bin_sizes, bin_modes, optimal_bucke
     return table_buckets
 
 
-def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False):
+def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False,
+                       return_bin_means=False, get_bin_means=False):
     """
     Preprocessing stats data and generate optimal bucket
     :param data_path: path to stats data folder
@@ -194,6 +232,8 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
     bin_size = dict()
     binned_data = dict()
     optimal_buckets = dict()
+    all_bin_means = dict()
+    all_bin_width = dict()
     for PK in equivalent_keys:
         print(f"bucketizing equivalent key group:", equivalent_keys[PK])
         group_data = {}
@@ -204,7 +244,7 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         if bucket_method == "greedy":
             temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         elif bucket_method == "sub_optimal":
-            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys)
+            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys, return_bin_means)
         elif bucket_method == "naive":
             temp_data, optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         else:
@@ -213,6 +253,8 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         binned_data.update(temp_data)
         for K in equivalent_keys[PK]:
             optimal_buckets[K] = optimal_bucket
+            all_bin_means[K] = np.asarray(optimal_bucket.buckets[K].bin_means)
+            all_bin_width[K] = np.asarray(optimal_bucket.buckets[K].bin_width)
             temp_table_name = K.split(".")[0]
             if temp_table_name not in bin_size:
                 bin_size[temp_table_name] = dict()
@@ -223,11 +265,15 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         temp_table_name = K.split(".")[0]
         temp = data[temp_table_name][K].values
         temp[temp >= 0] = binned_data[K]
-
-    table_buckets = generate_table_buckets(data, key_attrs, bin_size, all_bin_modes, optimal_buckets)
+        
+    if get_bin_means:
+        table_buckets = generate_table_buckets_means(data, key_attrs, bin_size, all_bin_means, optimal_buckets)
+    else:
+        table_buckets = generate_table_buckets(data, key_attrs, bin_size, all_bin_modes, optimal_buckets)
 
     if save_bucket_bins:
         with open(model_folder + f"/buckets.pkl") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
-
+    if return_bin_means:
+        return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size, all_bin_means, all_bin_width
     return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size

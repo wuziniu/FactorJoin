@@ -1,5 +1,8 @@
 # New Cardinality Estimation Scheme
 
+## Supplementary material
+  The supplement material of our SIGMOD submission can be found under the home directory "sigmod_supplementary.pdf".
+
 ## Environment setup
   The following command using conda should setup the environment in linux CentOS.
   ```
