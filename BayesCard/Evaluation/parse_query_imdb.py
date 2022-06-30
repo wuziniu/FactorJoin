@@ -46,7 +46,6 @@ def prepare_single_query(range_conditions, factor, epsilon=0.1):
     for table, f in factor.nominator_multipliers:
         fanout.append(table+"."+f)
 
-
     return query, fanout
 
    

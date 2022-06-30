@@ -577,3 +577,51 @@ def apply_binning_to_data_value_count(bins, data):
 
     res[0] += np.sum(np.isin(data, unique_remain))
     return res
+
+
+def update_bins(bucket, data, equivalent_keys):
+    """
+    Incremental model update
+    :param bucket: all bins
+    :param data: the new data for update
+    :return: new_data after bucketize, new_buckets for updated bin value count and bin modes
+    """
+    binned_data = dict()
+    new_bin_mode_all = dict()
+    for K in equivalent_keys:
+        key_data = data[K]
+        new_bin_mode = []
+        bin_means = np.asarray(bucket.buckets[K].bin_means)
+        temp_data = -1 * np.ones(len(key_data))
+        unique_remain = np.unique(key_data)
+        for v, b in enumerate(bucket.bins):
+            temp_idx = np.isin(key_data, b)
+            temp_data[temp_idx] = v
+            unique_remain = np.setdiff1d(unique_remain, b)
+            new_bin_mode.append(stats.mode(key_data[temp_idx]))
+        if len(unique_remain) > 0:
+            data_remain = key_data[np.isin(key_data, unique_remain)]
+            unique_remain, count_remain = np.unique(data_remain, return_counts=True)
+            unique_counts = np.unique(count_remain)
+            for u in unique_counts:
+                temp_idx = np.searchsorted(bin_means, u)
+                if temp_idx == len(bin_means):
+                    idx = -1
+                elif temp_idx == 0:
+                    idx = 0
+                else:
+                    if (u - bin_means[temp_idx - 1]) >= (bin_means[temp_idx] - u):
+                        idx = temp_idx - 1
+                    else:
+                        idx = temp_idx
+                temp_unique = unique_remain[count_remain == u]
+                bucket.bins[idx] = np.concatenate((bucket.bins[idx], temp_unique))
+                temp_data[np.isin(key_data, temp_unique)] = idx
+                new_bin_mode[idx] = max(new_bin_mode[idx], u)
+        binned_data[K] = temp_data
+        new_bin_mode_all[K] = new_bin_mode
+        return binned_data, new_bin_mode_all
+
+
+
+

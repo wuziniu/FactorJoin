@@ -504,7 +504,6 @@ class Bayescard_BN(BN_Single):
                         break
                     p = np.sum(probs[val] * n_distinct[attr])
                     p_estimate *= p
-
         else:
             p_estimates = []
             for i in range(num_samples):
@@ -514,7 +513,6 @@ class Bayescard_BN(BN_Single):
         if return_prob:
             return (p_estimate, nrows)
         return round(p_estimate * nrows)
-
 
     def query_id_prob(self, query, id_attrs, n_distinct=None, return_prob=False, reshape=True):
         """
@@ -562,7 +560,6 @@ class Bayescard_BN(BN_Single):
                 return id_attrs, res
             else:
                 return id_attrs, res * self.nrows
-
 
     def legitimacy_check(self):
         """

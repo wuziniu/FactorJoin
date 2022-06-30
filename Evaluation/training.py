@@ -1,7 +1,7 @@
 import pickle
 import time
 import numpy as np
-from Join_scheme.data_prepare import process_stats_data
+from Join_scheme.data_prepare import process_stats_data, update_stats_data
 from Join_scheme.bound import Bound_ensemble
 from BayesCard.Models.Bayescard_BN import Bayescard_BN
 from BayesCard.Evaluation.cardinality_estimation import parse_query_single_table
@@ -43,7 +43,8 @@ def test_trained_BN_on_stats(bn, t_name):
         assert min(pred, np.sum(id_probs)) / max(pred, np.sum(id_probs)) <= 1.5, "query_id_prob is incorrect"
 
 
-def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method="greedy", save_bucket_bins=False):
+def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method="greedy", save_bucket_bins=False,
+                    validate=True):
     data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size = process_stats_data(data_path,
                                                             model_folder, n_bins, bucket_method, save_bucket_bins)
     all_bns = dict()
@@ -51,12 +52,61 @@ def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method=
         t_name = table.table_name
         bn = Bayescard_BN(t_name, key_attrs[t_name], bin_size[t_name], null_values=null_values[t_name])
         bn.build_from_data(data[t_name])
-        test_trained_BN_on_stats(bn, t_name)
+        if validate:
+            test_trained_BN_on_stats(bn, t_name)
         all_bns[t_name] = bn
-        #model_path = model_folder + f"{t_name}.pkl"
-        #pickle.dump(bn, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
 
     be = Bound_ensemble(all_bns, table_buckets, schema)
     model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
+
+
+def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_folder, save_bucket_bins=False,
+                     update_BN=True, retrain_BN=False, old_data=None, validate=False):
+    """
+    Incrementally update the FactorJoin model
+    """
+    data, table_buckets, null_values = update_stats_data(data_path, save_model_folder, buckets, table_buckets,
+                                                         save_bucket_bins)
+    FJmodel.table_buckets = table_buckets
+    if update_BN:
+        # updating the single table estimator
+        for table in FJmodel.schema.tables:
+            t_name = table.table_name
+            old_null_values = FJmodel.bns[t_name].null_values
+            old_table_len = FJmodel.bns[t_name].nrows
+            new_table_len = len(data[t_name])
+            for attr in old_null_values:
+                if attr in null_values[t_name]:
+                    if null_values[t_name][attr] != -1:
+                        # hard coded -1 for null value of id attributes
+                        null_values[t_name][attr] = (null_values[t_name][attr] * new_table_len + old_null_values[attr]
+                                                     * old_table_len) / (new_table_len + old_table_len)
+                else:
+                    null_values[t_name][attr] = old_null_values[attr]
+
+        if retrain_BN:
+            # retrain the BN based on the new and old data
+            all_bns = dict()
+            for table in FJmodel.schema.tables:
+                t_name = table.table_name
+                bn = Bayescard_BN(t_name, table_buckets[t_name].id_attributes, table_buckets[t_name].bin_sizes,
+                                  null_values=null_values[t_name])
+                new_data = old_data[t_name].append(data[t_name], ignore_index=True)
+                bn.build_from_data(new_data)
+                if validate:
+                    test_trained_BN_on_stats(bn, t_name)
+                all_bns[t_name] = bn
+        else:
+            # incrementally update BN
+            for table in FJmodel.schema.tables:
+                t_name = table.table_name
+                bn = FJmodel.bns[t_name]
+                bn.null_values = null_values[t_name]
+                bn.update_from_data(data)
+
+    model_path = save_model_folder + f"update_model.pkl"
+    pickle.dump(FJmodel, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
+    print(f"models save at {model_path}")
+
