@@ -223,7 +223,7 @@ def update_table_buckets(buckets, data, binned_data, all_bin_modes, table_bucket
                         table_buckets[table].twod_bin_modes[key2][v1, v2] = max(bm2, nbm2)
                     else:
                         table_buckets[table].twod_bin_modes[key2][v1, v2] = bm2 + 0.5 * nbm2
-
+                        
     return table_buckets
 
 
@@ -325,7 +325,7 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         data[temp_table_name][K] = binned_data[K]
 
     if save_bucket_bins:
-        with open(model_folder + f"/buckets.pkl") as f:
+        with open(model_folder + "buckets.pkl", "wb") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
     if return_bin_means:
         return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size, all_bin_means, all_bin_width
@@ -396,9 +396,10 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, save_buck
         data[temp_table_name][K] = all_binned_data[K]
 
     if save_bucket_bins:
-        with open(model_folder + f"/buckets.pkl") as f:
+        with open(model_folder + f"buckets.pkl", "wb") as f:
             pickle.dump(buckets, f, pickle.HIGHEST_PROTOCOL)
 
     return data, new_table_buckets, null_values
+
 
 

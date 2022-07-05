@@ -44,9 +44,9 @@ def test_trained_BN_on_stats(bn, t_name):
 
 
 def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method="greedy", save_bucket_bins=False,
-                    validate=True):
+                    validate=True, actual_data=None):
     data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size = process_stats_data(data_path,
-                                                            model_folder, n_bins, bucket_method, save_bucket_bins)
+                                        model_folder, n_bins, bucket_method, save_bucket_bins, data=actual_data)
     all_bns = dict()
     for table in schema.tables:
         t_name = table.table_name
@@ -60,7 +60,7 @@ def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method=
     model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
-
+    
 
 def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_folder, save_bucket_bins=False,
                      update_BN=True, retrain_BN=False, old_data=None, validate=False):
