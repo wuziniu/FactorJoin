@@ -25,10 +25,11 @@ class Bound_ensemble:
     """
     This the class where we store all the trained models and perform inference on the bound.
     """
-    def __init__(self, bns, table_buckets, schema):
+    def __init__(self, bns, table_buckets, schema, null_value=None):
         self.bns = bns
         self.table_buckets = table_buckets
         self.schema = schema
+        self.null_value = null_value
         self.all_keys, self.equivalent_keys = identify_key_values(schema)
 
     def parse_query_simple(self, query):
