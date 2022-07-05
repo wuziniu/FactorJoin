@@ -182,6 +182,8 @@ def update_table_buckets(buckets, data, binned_data, all_bin_modes, table_bucket
     """
     for table in data:
         table_data = data[table]
+        if table_data is None:
+            continue
         key_attrs = table_buckets[table].id_attributes
 
         for key in key_attrs:
@@ -332,7 +334,8 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
     return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size
 
 
-def update_stats_data(data_path, model_folder, buckets, table_buckets, save_bucket_bins=False, data=None):
+def update_stats_data(data_path, model_folder, buckets, table_buckets, null_values=None,
+                      save_bucket_bins=False, data=None):
     """
     updating stats data according to an existing bucket
     """
@@ -345,14 +348,18 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, save_buck
     key_data = dict()  # store the columns of all keys
     sample_rate = dict()
     primary_keys = []
-    null_values = dict()
+    if null_values is None:
+        null_values = dict()
     key_attrs = dict()
     for table_obj in schema.tables:
         table_name = table_obj.table_name
-        null_values[table_name] = dict()
+        if table_name not in null_values:
+            null_values[table_name] = dict()
         key_attrs[table_name] = []
         if table_name in data:
             df_rows = data[table_name]
+            if df_rows is None or len(df_rows) == 0:
+                continue
         else:
             df_rows = read_table_csv(table_obj, stats=True)
         for attr in df_rows.columns:
@@ -371,7 +378,8 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, save_buck
                 key_attrs[table_name].append(attr)
             else:
                 temp = df_rows[attr].values
-                null_values[table_name][attr] = np.nanmin(temp) - 100
+                if attr not in null_values[table_name]:
+                    null_values[table_name][attr] = np.nanmin(temp) - 100
                 temp[np.isnan(temp)] = null_values[table_name][attr]
         data[table_name] = df_rows
 

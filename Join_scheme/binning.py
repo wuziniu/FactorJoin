@@ -590,6 +590,8 @@ def update_bins(bucket, data, equivalent_keys):
     new_bin_mode_all = dict()
     for K in equivalent_keys:
         key_data = data[K]
+        if key_data is None:
+            continue
         new_bin_mode = []
         bin_means = np.asarray(bucket.buckets[K].bin_means)
         temp_data = -1 * np.ones(len(key_data))
