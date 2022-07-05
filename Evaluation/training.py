@@ -50,13 +50,14 @@ def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method=
     all_bns = dict()
     for table in schema.tables:
         t_name = table.table_name
+        print(t_name)
         bn = Bayescard_BN(t_name, key_attrs[t_name], bin_size[t_name], null_values=null_values[t_name])
         bn.build_from_data(data[t_name])
         if validate:
             test_trained_BN_on_stats(bn, t_name)
         all_bns[t_name] = bn
 
-    be = Bound_ensemble(all_bns, table_buckets, schema)
+    be = Bound_ensemble(all_bns, table_buckets, schema, null_values)
     model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
@@ -72,20 +73,6 @@ def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_fold
     FJmodel.table_buckets = table_buckets
     if update_BN:
         # updating the single table estimator
-        for table in FJmodel.schema.tables:
-            t_name = table.table_name
-            old_null_values = FJmodel.bns[t_name].null_values
-            old_table_len = FJmodel.bns[t_name].nrows
-            new_table_len = len(data[t_name])
-            for attr in old_null_values:
-                if attr in null_values[t_name]:
-                    if null_values[t_name][attr] != -1:
-                        # hard coded -1 for null value of id attributes
-                        null_values[t_name][attr] = (null_values[t_name][attr] * new_table_len + old_null_values[attr]
-                                                     * old_table_len) / (new_table_len + old_table_len)
-                else:
-                    null_values[t_name][attr] = old_null_values[attr]
-
         if retrain_BN:
             # retrain the BN based on the new and old data
             all_bns = dict()

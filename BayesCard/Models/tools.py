@@ -107,7 +107,8 @@ def discretize_series(series: pd.Series, n_mcv, n_bins, is_continous=False, cont
     encoding = dict()
     mapping = dict()
 
-    if is_continous or (s.nunique() >= len(s) / 30 and isinstance(s.iloc[0], numbers.Number)):
+    #if is_continous or (s.nunique() >= len(s) / 30 and isinstance(s.iloc[0], numbers.Number)):
+    if is_continous:
         # Under this condition, we can assume we are dealing with continuous data
         # Histogram for continuous data
         if not continuous_bins:

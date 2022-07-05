@@ -589,8 +589,12 @@ def update_bins(bucket, data, equivalent_keys):
     binned_data = dict()
     new_bin_mode_all = dict()
     for K in equivalent_keys:
+        if K not in data:
+            print(K)
+            continue
         key_data = data[K]
         if key_data is None:
+            print(K)
             continue
         new_bin_mode = []
         bin_means = np.asarray(bucket.buckets[K].bin_means)
@@ -598,9 +602,12 @@ def update_bins(bucket, data, equivalent_keys):
         unique_remain = np.unique(key_data)
         for v, b in enumerate(bucket.bins):
             temp_idx = np.isin(key_data, b)
-            temp_data[temp_idx] = v
-            unique_remain = np.setdiff1d(unique_remain, b)
-            new_bin_mode.append(stats.mode(key_data[temp_idx]))
+            if len(temp_data[temp_idx]) != 0:
+                temp_data[temp_idx] = v
+                unique_remain = np.setdiff1d(unique_remain, b)
+                new_bin_mode.append(stats.mode(key_data[temp_idx]).count[0])
+            else:
+                new_bin_mode.append(0)
         if len(unique_remain) > 0:
             data_remain = key_data[np.isin(key_data, unique_remain)]
             unique_remain, count_remain = np.unique(data_remain, return_counts=True)
@@ -619,10 +626,12 @@ def update_bins(bucket, data, equivalent_keys):
                 temp_unique = unique_remain[count_remain == u]
                 bucket.bins[idx] = np.concatenate((bucket.bins[idx], temp_unique))
                 temp_data[np.isin(key_data, temp_unique)] = idx
+                #print(idx, new_bin_mode[idx])
+                #print(max(new_bin_mode[idx], u))
                 new_bin_mode[idx] = max(new_bin_mode[idx], u)
         binned_data[K] = temp_data
         new_bin_mode_all[K] = new_bin_mode
-        return binned_data, new_bin_mode_all
+    return binned_data, new_bin_mode_all
 
 
 

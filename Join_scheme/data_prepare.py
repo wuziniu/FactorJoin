@@ -200,6 +200,9 @@ def update_table_buckets(buckets, data, binned_data, all_bin_modes, table_bucket
         if len(key_attrs) == 2:
             key1 = key_attrs[0]
             key2 = key_attrs[1]
+            if key1 not in binned_data or key2 not in binned_data:
+                print(key1, key2, binned_data)
+                continue
             key_binned_data = np.stack((binned_data[key1], binned_data[key2]), axis=1)
             key_data = np.stack((table_data[key1], table_data[key2]), axis=1)
             old_twod_bin_modes1 = table_buckets[table].twod_bin_modes[key1]
@@ -209,7 +212,7 @@ def update_table_buckets(buckets, data, binned_data, all_bin_modes, table_bucket
                 temp_data = key_data[key_binned_data[:, 0] == v1]
                 if len(temp_data) == 0:
                     continue
-                for v2, b2 in range(len(buckets[key2].bins)):
+                for v2 in range(len(buckets[key2].bins)):
                     temp_data2 = copy.deepcopy(temp_data[temp_binned_data[:, 1] == v2])
                     if len(temp_data2) == 0:
                         continue
@@ -359,6 +362,7 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, null_valu
         if table_name in data:
             df_rows = data[table_name]
             if df_rows is None or len(df_rows) == 0:
+                print(f"{table_name} does not have data to update")
                 continue
         else:
             df_rows = read_table_csv(table_obj, stats=True)
@@ -408,6 +412,4 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, null_valu
             pickle.dump(buckets, f, pickle.HIGHEST_PROTOCOL)
 
     return data, new_table_buckets, null_values
-
-
 
