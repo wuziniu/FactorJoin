@@ -44,9 +44,9 @@ def test_trained_BN_on_stats(bn, t_name):
 
 
 def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method="greedy", save_bucket_bins=False,
-                    validate=True):
+                    validate=True, actual_data=None):
     data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size = process_stats_data(data_path,
-                                                            model_folder, n_bins, bucket_method, save_bucket_bins)
+                                        model_folder, n_bins, bucket_method, save_bucket_bins, data=actual_data)
     all_bns = dict()
     for table in schema.tables:
         t_name = table.table_name
