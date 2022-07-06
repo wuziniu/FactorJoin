@@ -118,6 +118,7 @@ class TabularCPD(DiscreteFactor):
             if isinstance(evidence, str):
                 raise TypeError("Evidence must be list, tuple or array of strings.")
             variables.extend(evidence)
+            #print(evidence_card, evidence)
             if not len(evidence_card) == len(evidence):
                 raise ValueError(
                     "Length of evidence_card doesn't match length of evidence"

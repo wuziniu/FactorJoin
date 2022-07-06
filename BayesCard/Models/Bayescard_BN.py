@@ -163,7 +163,6 @@ class Bayescard_BN(BN_Single):
         print(f"done, incremental parameter updating took {time.time() - t} secs.")
         self.init_inference_method()
 
-
     def update_cpd_table(self, old_cpd, new_cpd):
         """
         Incrementally update the value of one cpd table
@@ -174,9 +173,12 @@ class Bayescard_BN(BN_Single):
         ret_cpd_evidence_card = []
         ret_cpd_state_names = dict()
         ret_values_shape = []
+        
         for col in old_cpd.state_names:
             if self.attr_type[col] == "continuous":
                 ret_cpd_state_names[col] = list(self.mapping_update[col].keys())
+            elif col in self.id_attributes:
+                ret_cpd_state_names[col] = list(self.encoding_update[col])
             else:
                 ret_cpd_state_names[col] = list(set(self.encoding_update[col].values()))
             if col == var:
@@ -199,13 +201,10 @@ class Bayescard_BN(BN_Single):
 
         ret_values = self.nrows * ret_values_old + self.insert_len * ret_values_new
         ret_values = ret_values.reshape((ret_values.shape[0], -1))
-
-        ret_cpd = TabularCPD(ret_cpd_variable, ret_cpd_variable_card, ret_values, ret_cpd_evidence,
+        ret_cpd = TabularCPD(ret_cpd_variable, ret_cpd_variable_card, ret_values, None, ret_cpd_evidence,
                              ret_cpd_evidence_card, state_names=ret_cpd_state_names)
         ret_cpd.normalize()
         return ret_cpd
-
-
 
     def init_inference_method(self):
         """

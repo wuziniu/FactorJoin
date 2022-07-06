@@ -91,6 +91,8 @@ class BN_Single():
         for col in table.columns:
             if col in ignore_cols:
                 table = table.drop(col, axis=1)
+            elif col in self.id_attributes:
+                continue
             else:
                 table[col], self.n_in_bin_update[col], self.encoding_update[col], mapping\
                     = self.discretize_series_based_on_existing(
