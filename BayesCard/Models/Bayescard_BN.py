@@ -519,7 +519,6 @@ class Bayescard_BN(BN_Single):
         Calculating the probability distribution of id P(id|Q) * |Q|
         Parameters
         ----------
-        fanout_attrs: a list of fanout variables F, where we would like to compute the expectation
         Rest parameters: the same as previous function .query().
         """
 

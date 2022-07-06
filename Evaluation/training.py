@@ -75,23 +75,24 @@ def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_fold
         # updating the single table estimator
         if retrain_BN:
             # retrain the BN based on the new and old data
-            all_bns = dict()
             for table in FJmodel.schema.tables:
                 t_name = table.table_name
-                bn = Bayescard_BN(t_name, table_buckets[t_name].id_attributes, table_buckets[t_name].bin_sizes,
-                                  null_values=null_values[t_name])
-                new_data = old_data[t_name].append(data[t_name], ignore_index=True)
-                bn.build_from_data(new_data)
-                if validate:
-                    test_trained_BN_on_stats(bn, t_name)
-                all_bns[t_name] = bn
+                if t_name in data and data[t_name] is not None:
+                    bn = Bayescard_BN(t_name, table_buckets[t_name].id_attributes, table_buckets[t_name].bin_sizes,
+                                      null_values=null_values[t_name])
+                    new_data = old_data[t_name].append(data[t_name], ignore_index=True)
+                    bn.build_from_data(new_data)
+                    if validate:
+                        test_trained_BN_on_stats(bn, t_name)
+                    FJmodel.bns[t_name] = bn
         else:
             # incrementally update BN
             for table in FJmodel.schema.tables:
                 t_name = table.table_name
-                bn = FJmodel.bns[t_name]
-                bn.null_values = null_values[t_name]
-                bn.update_from_data(data)
+                if t_name in data and data[t_name] is not None:
+                    bn = FJmodel.bns[t_name]
+                    bn.null_values = null_values[t_name]
+                    bn.update_from_data(data)
 
     model_path = save_model_folder + f"update_model.pkl"
     pickle.dump(FJmodel, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)

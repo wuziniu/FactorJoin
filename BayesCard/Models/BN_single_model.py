@@ -59,6 +59,7 @@ class BN_Single():
                     self.id_exist_null[col] = False
                     self.id_value_position[col] = self.encoding[col]
                 self.mapping[col] = None
+                self.domain[col] = list(table[col].unique())
             else:
                 table[col], self.n_in_bin[col], self.bin_width[col], self.encoding[col], self.mapping[col], \
                     self.domain[col] = discretize_series(
