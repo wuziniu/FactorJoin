@@ -52,12 +52,10 @@ class BN_Single():
                 table = table.drop(col, axis=1)
             elif col in id_attributes:
                 self.encoding[col] = np.sort(np.unique(table[col].values)).astype(int)
-                if self.encoding[col][0] == -1:
-                    self.id_exist_null[col] = True
-                    self.id_value_position[col] = self.encoding[col][1:]
-                else:
-                    self.id_exist_null[col] = False
-                    self.id_value_position[col] = self.encoding[col]
+                if self.encoding[col][0] != -1:
+                    self.encoding[col] = np.concatenate((-np.ones(1).astype(int), self.encoding[col]))
+                self.id_exist_null[col] = True
+                self.id_value_position[col] = self.encoding[col][1:]
                 self.mapping[col] = None
                 self.domain[col] = list(table[col].unique())
             else:
@@ -93,6 +91,7 @@ class BN_Single():
                 table = table.drop(col, axis=1)
             elif col in self.id_attributes:
                 continue
+                #self.domain[col] = np.union1d(self.domain[col], table[col].unique())
             else:
                 table[col], self.n_in_bin_update[col], self.encoding_update[col], mapping\
                     = self.discretize_series_based_on_existing(

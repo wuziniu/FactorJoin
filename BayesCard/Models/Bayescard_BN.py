@@ -530,7 +530,6 @@ class Bayescard_BN(BN_Single):
                     res = np.zeros(self.bin_size[id_attrs[0]])
                     if self.id_exist_null[id_attrs[0]]:
                         res[self.id_value_position[id_attrs[0]]] = temp[1:]
-
                     else:
                         res[self.id_value_position[id_attrs[0]]] = temp
                 elif len(id_attrs) == 2:
