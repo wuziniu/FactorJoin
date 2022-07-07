@@ -1,7 +1,7 @@
 import pickle
 import time
 import numpy as np
-from Join_scheme.data_prepare import process_stats_data, update_stats_data
+from Join_scheme.data_prepare import process_stats_data
 from Join_scheme.bound import Bound_ensemble
 from BayesCard.Models.Bayescard_BN import Bayescard_BN
 from BayesCard.Evaluation.cardinality_estimation import parse_query_single_table
@@ -60,41 +60,5 @@ def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method=
     be = Bound_ensemble(all_bns, table_buckets, schema, null_values)
     model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
-    print(f"models save at {model_path}")
-    
-
-def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_folder, save_bucket_bins=False,
-                     update_BN=True, retrain_BN=False, old_data=None, validate=False):
-    """
-    Incrementally update the FactorJoin model
-    """
-    data, table_buckets, null_values = update_stats_data(data_path, save_model_folder, buckets, table_buckets,
-                                                         save_bucket_bins)
-    FJmodel.table_buckets = table_buckets
-    if update_BN:
-        # updating the single table estimator
-        if retrain_BN:
-            # retrain the BN based on the new and old data
-            for table in FJmodel.schema.tables:
-                t_name = table.table_name
-                if t_name in data and data[t_name] is not None:
-                    bn = Bayescard_BN(t_name, table_buckets[t_name].id_attributes, table_buckets[t_name].bin_sizes,
-                                      null_values=null_values[t_name])
-                    new_data = old_data[t_name].append(data[t_name], ignore_index=True)
-                    bn.build_from_data(new_data)
-                    if validate:
-                        test_trained_BN_on_stats(bn, t_name)
-                    FJmodel.bns[t_name] = bn
-        else:
-            # incrementally update BN
-            for table in FJmodel.schema.tables:
-                t_name = table.table_name
-                if t_name in data and data[t_name] is not None:
-                    bn = FJmodel.bns[t_name]
-                    bn.null_values = null_values[t_name]
-                    bn.update_from_data(data)
-
-    model_path = save_model_folder + f"update_model.pkl"
-    pickle.dump(FJmodel, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
 
