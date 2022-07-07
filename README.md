@@ -97,3 +97,16 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect the postgres cache and make fair comparisons among all methods.
   
+  ### Model Update
+  Run the following command to train a FactorJoin on data before 2014 and incrementally update the model with data after 2014:
+  ```
+  python run_experiment.py --dataset stats
+         --update_evaluate
+         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified
+         --model_path /home/ubuntu/data_CE/CE_scheme_models/update/
+         --n_bins 200
+         --bucket_method sub_optimal
+         --split_date '2014-01-01 00:00:00'
+  ```
+  Afterwards, an updated model should be saved under --model_path, and you can follow the previous instruction to evaluate its end-to-end performance.
+  

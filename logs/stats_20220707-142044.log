@@ -1,0 +1,83 @@
+2022-07-07 14:20:52,708 [INFO ]  Note: NumExpr detected 20 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+2022-07-07 14:20:52,725 [INFO ]  Discretizing table takes 0.02169203758239746 secs
+2022-07-07 14:20:52,725 [INFO ]  Learning BN optimal structure from data with 54920 rows and 2 cols
+2022-07-07 14:20:54,044 [INFO ]  Structure learning took 1.3192477226257324 secs.
+2022-07-07 14:20:54,046 [INFO ]  Model spec[('badges.UserId', 'badges.Date')]
+2022-07-07 14:20:54,046 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:20:54,160 [INFO ]  done, took 0.1138467788696289 secs.
+2022-07-07 14:20:56,542 [INFO ]  Discretizing table takes 2.3765454292297363 secs
+2022-07-07 14:20:56,542 [INFO ]  Learning BN optimal structure from data with 245295 rows and 5 cols
+2022-07-07 14:21:08,946 [INFO ]  Structure learning took 12.403574228286743 secs.
+2022-07-07 14:21:08,949 [INFO ]  Model spec[('votes.UserId', 'votes.VoteTypeId'), ('votes.PostId', 'votes.CreationDate'), ('votes.CreationDate', 'votes.UserId'), ('votes.VoteTypeId', 'votes.BountyAmount')]
+2022-07-07 14:21:08,949 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:09,045 [INFO ]  done, took 0.09597992897033691 secs.
+2022-07-07 14:21:09,155 [INFO ]  Discretizing table takes 0.08954334259033203 secs
+2022-07-07 14:21:09,156 [INFO ]  Learning BN optimal structure from data with 214690 rows and 4 cols
+2022-07-07 14:21:20,982 [INFO ]  Structure learning took 11.826061964035034 secs.
+2022-07-07 14:21:20,986 [INFO ]  Model spec[('postHistory.CreationDate', 'postHistory.PostId'), ('postHistory.UserId', 'postHistory.CreationDate'), ('postHistory.PostHistoryTypeId', 'postHistory.UserId')]
+2022-07-07 14:21:20,986 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:21,125 [INFO ]  done, took 0.13945817947387695 secs.
+2022-07-07 14:21:21,598 [INFO ]  Discretizing table takes 0.4575178623199463 secs
+2022-07-07 14:21:21,598 [INFO ]  Learning BN optimal structure from data with 65512 rows and 9 cols
+2022-07-07 14:21:32,570 [INFO ]  Structure learning took 10.971292972564697 secs.
+2022-07-07 14:21:32,575 [INFO ]  Model spec[('posts.AnswerCount', 'posts.PostTypeId'), ('posts.OwnerUserId', 'posts.CreationDate'), ('posts.Id', 'posts.Score'), ('posts.FavoriteCount', 'posts.ViewCount'), ('posts.ViewCount', 'posts.OwnerUserId'), ('posts.ViewCount', 'posts.AnswerCount'), ('posts.Id', 'posts.CommentCount'), ('posts.Id', 'posts.FavoriteCount')]
+2022-07-07 14:21:32,575 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:32,805 [INFO ]  done, took 0.22924494743347168 secs.
+2022-07-07 14:21:35,198 [INFO ]  Discretizing table takes 2.3809332847595215 secs
+2022-07-07 14:21:35,198 [INFO ]  Learning BN optimal structure from data with 25878 rows and 6 cols
+2022-07-07 14:21:37,753 [INFO ]  Structure learning took 2.554792881011963 secs.
+2022-07-07 14:21:37,758 [INFO ]  Model spec[('users.Id', 'users.Reputation'), ('users.Reputation', 'users.CreationDate'), ('users.Reputation', 'users.Views'), ('users.Reputation', 'users.UpVotes'), ('users.UpVotes', 'users.DownVotes')]
+2022-07-07 14:21:37,758 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:37,840 [INFO ]  done, took 0.08166837692260742 secs.
+2022-07-07 14:21:37,943 [INFO ]  Discretizing table takes 0.08394980430603027 secs
+2022-07-07 14:21:37,943 [INFO ]  Learning BN optimal structure from data with 126884 rows and 4 cols
+2022-07-07 14:21:44,618 [INFO ]  Structure learning took 6.674746513366699 secs.
+2022-07-07 14:21:44,622 [INFO ]  Model spec[('comments.UserId', 'comments.Score'), ('comments.PostId', 'comments.CreationDate'), ('comments.CreationDate', 'comments.UserId')]
+2022-07-07 14:21:44,622 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:44,747 [INFO ]  done, took 0.1252439022064209 secs.
+2022-07-07 14:21:44,768 [INFO ]  Discretizing table takes 0.014542102813720703 secs
+2022-07-07 14:21:44,768 [INFO ]  Learning BN optimal structure from data with 7191 rows and 4 cols
+2022-07-07 14:21:45,357 [INFO ]  Structure learning took 0.5886578559875488 secs.
+2022-07-07 14:21:45,358 [INFO ]  Model spec[('postLinks.CreationDate', 'postLinks.PostId'), ('postLinks.CreationDate', 'postLinks.RelatedPostId'), ('postLinks.CreationDate', 'postLinks.LinkTypeId')]
+2022-07-07 14:21:45,358 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:45,427 [INFO ]  done, took 0.06912374496459961 secs.
+2022-07-07 14:21:45,441 [INFO ]  Discretizing table takes 0.008554458618164062 secs
+2022-07-07 14:21:45,441 [INFO ]  Learning BN optimal structure from data with 1032 rows and 2 cols
+2022-07-07 14:21:45,466 [INFO ]  Structure learning took 0.0250394344329834 secs.
+2022-07-07 14:21:45,466 [INFO ]  Model spec[('tags.Count', 'tags.ExcerptPostId')]
+2022-07-07 14:21:45,466 [INFO ]  calling pgm.BayesianModel.fit...
+2022-07-07 14:21:45,483 [INFO ]  done, took 0.016242027282714844 secs.
+2022-07-07 14:21:47,724 [WARNI]  Replacing existing CPD for badges.Date
+2022-07-07 14:21:47,725 [WARNI]  Replacing existing CPD for badges.UserId
+2022-07-07 14:21:48,197 [WARNI]  Replacing existing CPD for votes.BountyAmount
+2022-07-07 14:21:48,197 [WARNI]  Replacing existing CPD for votes.CreationDate
+2022-07-07 14:21:48,198 [WARNI]  Replacing existing CPD for votes.PostId
+2022-07-07 14:21:48,198 [WARNI]  Replacing existing CPD for votes.UserId
+2022-07-07 14:21:48,198 [WARNI]  Replacing existing CPD for votes.VoteTypeId
+2022-07-07 14:21:48,424 [WARNI]  Replacing existing CPD for postHistory.CreationDate
+2022-07-07 14:21:48,424 [WARNI]  Replacing existing CPD for postHistory.PostHistoryTypeId
+2022-07-07 14:21:48,424 [WARNI]  Replacing existing CPD for postHistory.PostId
+2022-07-07 14:21:48,424 [WARNI]  Replacing existing CPD for postHistory.UserId
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.AnswerCount
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.CommentCount
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.CreationDate
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.FavoriteCount
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.Id
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.OwnerUserId
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.PostTypeId
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.Score
+2022-07-07 14:21:48,837 [WARNI]  Replacing existing CPD for posts.ViewCount
+2022-07-07 14:21:49,563 [WARNI]  Replacing existing CPD for users.CreationDate
+2022-07-07 14:21:49,564 [WARNI]  Replacing existing CPD for users.DownVotes
+2022-07-07 14:21:49,564 [WARNI]  Replacing existing CPD for users.Id
+2022-07-07 14:21:49,564 [WARNI]  Replacing existing CPD for users.Reputation
+2022-07-07 14:21:49,564 [WARNI]  Replacing existing CPD for users.UpVotes
+2022-07-07 14:21:49,564 [WARNI]  Replacing existing CPD for users.Views
+2022-07-07 14:21:49,742 [WARNI]  Replacing existing CPD for comments.CreationDate
+2022-07-07 14:21:49,742 [WARNI]  Replacing existing CPD for comments.PostId
+2022-07-07 14:21:49,742 [WARNI]  Replacing existing CPD for comments.Score
+2022-07-07 14:21:49,742 [WARNI]  Replacing existing CPD for comments.UserId
+2022-07-07 14:21:49,865 [WARNI]  Replacing existing CPD for postLinks.CreationDate
+2022-07-07 14:21:49,866 [WARNI]  Replacing existing CPD for postLinks.LinkTypeId
+2022-07-07 14:21:49,866 [WARNI]  Replacing existing CPD for postLinks.PostId
+2022-07-07 14:21:49,866 [WARNI]  Replacing existing CPD for postLinks.RelatedPostId

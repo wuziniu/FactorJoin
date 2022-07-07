@@ -109,14 +109,14 @@ class BN_Single():
                 )
                 self.max_value[col] = int(table[col].max()) + 1
                 if self.mapping_update[col] is not None and mapping is not None:
-                    print("===========================================")
-                    print(col, self.attr_type[col])
-                    print(self.mapping_update[col])
-                    print(mapping)
+                    #print("===========================================")
+                    #print(col, self.attr_type[col])
+                    #print(self.mapping_update[col])
+                    #print(mapping)
                     self.mapping_update[col].update(mapping)
                     # sorted it by key
                     self.mapping_update[col] = {k: self.mapping_update[col][k] for k in sorted(self.mapping_update[col])}
-                print(self.mapping_update[col])
+                #print(self.mapping_update[col])
         return table
 
     def discretize_series_based_on_existing(self, series, col, n_bins, is_continuous=False,
@@ -160,7 +160,7 @@ class BN_Single():
                     mapping[val] = interval
                     if val == -1:
                         val = max(list(old_mapping_reversed.values())) + 1
-                val += 1
+                #val += 1
 
             s = temp.cat.rename_categories(categ)
 

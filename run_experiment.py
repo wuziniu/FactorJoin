@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # update
     parser.add_argument('--update_evaluate', help='Train and incrementally update the model', action='store_true')
-    parser.add_argument('--split_date', help='which date we want to split the data for update',
+    parser.add_argument('--split_date', help='which date we want to split the data for update', type=str,
                         default="2014-01-01 00:00:00")
     
     # log level
@@ -75,7 +75,8 @@ if __name__ == '__main__':
             test_on_stats(args.model_path, args.query_file_location, save_file)
 
         elif args.update_evaluate:
-            eval_update(args.data_path, args.model_path, args.n_bins, args.bucket_method, args.split_date)
+            print(args.split_date)
+            #eval_update(args.data_path, args.model_path, args.n_bins, args.bucket_method, args.split_date)
 
             
 
