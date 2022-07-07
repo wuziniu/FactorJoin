@@ -6,6 +6,7 @@ import time
 from Join_scheme.data_prepare import convert_time_to_int
 from Evaluation.training import train_one_stats
 from Evaluation.testing import test_on_stats
+from Evaluation.updating import eval_update
 
 if __name__ == '__main__':
 
@@ -35,6 +36,11 @@ if __name__ == '__main__':
                         default='/home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql')
     parser.add_argument('--save_folder',
                         default='/home/ubuntu/data_CE/CE_scheme_models/')
+
+    # update
+    parser.add_argument('--update_evaluate', help='Train and incrementally update the model', action='store_true')
+    parser.add_argument('--split_date', help='which date we want to split the data for update',
+                        default="2014-01-01 00:00:00")
     
     # log level
     parser.add_argument('--log_level', type=int, default=logging.DEBUG)
@@ -67,5 +73,9 @@ if __name__ == '__main__':
             save_file = args.save_folder + "stats_CEB_sub_queries_" + \
                         args.model_path.split("/")[-1].split(".pkl")[0] + ".txt"
             test_on_stats(args.model_path, args.query_file_location, save_file)
+
+        elif args.update_evaluate:
+            eval_update(args.data_path, args.model_path, args.n_bins, args.bucket_method, args.split_date)
+
             
 

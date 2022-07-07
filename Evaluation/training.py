@@ -1,5 +1,5 @@
 import pickle
-import time
+import os
 import numpy as np
 from Join_scheme.data_prepare import process_stats_data
 from Join_scheme.bound import Bound_ensemble
@@ -58,6 +58,9 @@ def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method=
         all_bns[t_name] = bn
 
     be = Bound_ensemble(all_bns, table_buckets, schema, null_values)
+
+    if not os.path.exists(model_folder):
+        os.mkdir(model_folder)
     model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")

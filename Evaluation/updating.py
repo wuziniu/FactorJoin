@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import time
+import os
 import sys
 sys.path.append("/home/ubuntu/CE_scheme")
 from Schemas.stats.schema import gen_stats_light_schema
