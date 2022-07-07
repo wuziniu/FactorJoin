@@ -195,8 +195,25 @@ class Bayescard_BN(BN_Single):
 
         ret_values_new = np.zeros(tuple(ret_values_shape))
         new_index = []
-        for col in old_cpd.state_names:
+        for i, col in enumerate(old_cpd.state_names):
+            if -1 in new_cpd.state_names[col] and -1 not in ret_cpd_state_names[col]:
+                #this hard coded for we use -1 as Nan value for id_columns
+                idx = new_cpd.state_names[col].index(-1)
+                array_idx = np.delete(np.arange(len(new_cpd.state_names[col])), idx)
+                new_cpd.state_names[col].remove(-1)
+                if i == 0:
+                    new_cpd.values = new_cpd.values[array_idx]
+                elif i == 1:
+                    new_cpd.values = new_cpd.values[:, array_idx]
+                else:
+                    assert False, "only support 2d id distributions"
+            #temp = []
+            #for x in new_cpd.state_names[col]:
+             #   if x in ret_cpd_state_names[col]:
+              #      temp.append(ret_cpd_state_names[col].index(x))
+            #new_index.append(temp)
             new_index.append([ret_cpd_state_names[col].index(x) for x in new_cpd.state_names[col]])
+            
         ret_values_new = multi_dim_index(ret_values_new, new_index, new_cpd.values)
 
         ret_values = self.nrows * ret_values_old + self.insert_len * ret_values_new

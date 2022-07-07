@@ -52,10 +52,16 @@ class BN_Single():
                 table = table.drop(col, axis=1)
             elif col in id_attributes:
                 self.encoding[col] = np.sort(np.unique(table[col].values)).astype(int)
-                if self.encoding[col][0] != -1:
-                    self.encoding[col] = np.concatenate((-np.ones(1).astype(int), self.encoding[col]))
-                self.id_exist_null[col] = True
-                self.id_value_position[col] = self.encoding[col][1:]
+                if self.encoding[col][0] == -1:
+                    self.id_exist_null[col] = True
+                    self.id_value_position[col] = self.encoding[col][1:]
+                else:
+                    self.id_exist_null[col] = False
+                    self.id_value_position[col] = self.encoding[col]
+                #if self.encoding[col][0] != -1:
+                 #   self.encoding[col] = np.concatenate((-np.ones(1).astype(int), self.encoding[col]))
+                #self.id_exist_null[col] = True
+                #self.id_value_position[col] = self.encoding[col][1:]
                 self.mapping[col] = None
                 self.domain[col] = list(table[col].unique())
             else:
@@ -102,10 +108,15 @@ class BN_Single():
                     drop_na=not drop_na
                 )
                 self.max_value[col] = int(table[col].max()) + 1
-                if self.mapping_update[col] and mapping:
+                if self.mapping_update[col] is not None and mapping is not None:
+                    print("===========================================")
+                    print(col, self.attr_type[col])
+                    print(self.mapping_update[col])
+                    print(mapping)
                     self.mapping_update[col].update(mapping)
                     # sorted it by key
                     self.mapping_update[col] = {k: self.mapping_update[col][k] for k in sorted(self.mapping_update[col])}
+                print(self.mapping_update[col])
         return table
 
     def discretize_series_based_on_existing(self, series, col, n_bins, is_continuous=False,

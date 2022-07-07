@@ -251,7 +251,6 @@ class VariableEliminationJIT(object):
                     prob_id[var] = new_value
                     if root_var:
                         return [var], new_value
-                    # print(new_value.shape)
                     # new_value = np.dot(self.fanouts[var], new_value)
                 else:
                     if root_var:
