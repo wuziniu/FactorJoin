@@ -20,26 +20,5 @@ The optimal trained models for each dataset are already stored. If you are only 
 2. IMDB dataset:
    The imdb dataset can be downloaded here: http://homepages.cwi.nl/~boncz/job/imdb.tgz
    
-## Reproducing result on STATS:
-  In order to reproduce the result for STATS, 
-  First run the following command to train the models
-  ```
-  python run_experiment.py --dataset stats
-         --generate_models
-         --data_path /Users/ziniuw/Desktop/past_research/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv
-         --model_path /Users/ziniuw/Desktop/research/Learned_QO/CC_model/CE_scheme_models/stats/
-         --n_bins 200
-  ```
-  data_path points the dataset you just downloaded
-
-  model_path specifies the location to save the model
-
-  
-  Then, evaluate the learnt model
-  ```
-  python run_experiment.py --dataset stats
-         --evaluate
-         --model_path /Users/ziniuw/Desktop/research/Learned_QO/CC_model/CE_scheme_models/stats/
-         --query_file_location /Users/ziniuw/Desktop/past_research/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql
-  ```
-  
+## Reproducing result on IMDB:
+  We are currently working on the code cleaning for IMDB workload and merge it with STATS branch, so the code is a bit messy now.
