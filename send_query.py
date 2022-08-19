@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 
 
-def send_query(dataset, method_name, query_file, save_folder):
+def send_query(dataset, method_name, query_file, save_folder, iteration=None):
     conn = psycopg2.connect(database=dataset, user="postgres", password="postgres", host="127.0.0.1", port=5436,)
     cursor = conn.cursor()
 
@@ -24,6 +24,8 @@ def send_query(dataset, method_name, query_file, save_folder):
     planning_time = [] 
     execution_time = []
     for no, query in enumerate(queries):
+        if "||" in query:
+            query = query.split("||")[-1]
         print(f"Executing query {no}")
         start = time.time()
         cursor.execute("EXPLAIN ANALYZE " + query)
@@ -36,8 +38,12 @@ def send_query(dataset, method_name, query_file, save_folder):
     cursor.close()
     conn.close()
     save_file_name = method_name.split(".txt")[0]
-    np.save(save_folder + f"plan_time_{save_file_name}", np.asarray(planning_time))
-    np.save(save_folder + f"exec_time_{save_file_name}", np.asarray(execution_time))
+    if iteration:
+        np.save(save_folder + f"plan_time_{save_file_name}_iter{iteration}", np.asarray(planning_time))
+        np.save(save_folder + f"exec_time_{save_file_name}_iter{iteration}", np.asarray(execution_time))
+    else:
+        np.save(save_folder + f"plan_time_{save_file_name}", np.asarray(planning_time))
+        np.save(save_folder + f"exec_time_{save_file_name}", np.asarray(execution_time))
     
 
 if __name__ == '__main__':
@@ -46,8 +52,13 @@ if __name__ == '__main__':
     parser.add_argument('--method_name', default='stats_CEB_sub_queries_model_stats_greedy_50.txt', help='save estimates')
     parser.add_argument('--query_file', default='/home/ubuntu/data_CE/stats_CEB/stats_CEB.sql', help='Query file location')
     parser.add_argument('--save_folder', default='/home/ubuntu/data_CE/stats_CEB/', help='Query file location')
+    parser.add_argument('--iteration', type=int, default=None, help='Number of iteration to read')
     args = parser.parse_args()
     
-    send_query(args.dataset, args.method_name, args.query_file, args.save_folder)
+    if args.iteration:
+        for i in range(args.iteration):
+            send_query(args.dataset, args.method_name, args.query_file, args.save_folder, i+1)
+    else:
+        send_query(args.dataset, args.method_name, args.query_file, args.save_folder)
     
     
