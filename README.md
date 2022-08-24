@@ -87,6 +87,9 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   ```
   sudo docker cp /home/ubuntu/data_CE/CE_scheme_models/[method].txt ce-benchmark:/var/lib/pgsql/13.1/data/[method].txt
   ```
+  
+  /home/ubuntu/data_CE/CE_scheme_models/[method].txt is the location of the saved cardinality predictions
+  
   Execute the follow command to get the end-to-end results:
   ```
   python send_query.py --dataset stats
