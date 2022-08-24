@@ -26,6 +26,8 @@ if __name__ == '__main__':
     parser.add_argument('--model_location', nargs='+', default='../CE_scheme_models')
     parser.add_argument('--query_file', default='../job_queries/all_queries.pkl')
     parser.add_argument('--query_sub_plan_file', default='../job_queries/all_sub_plan_queries_str.pkl')
+    parser.add_argument('--SPERCENTAGE', type=float, default=1.0)
+    parser.add_argument('--query_sample_location', type=str, default=None)
     parser.add_argument('--save_dir', default='../job_queries/estimates.txt')
 
     # log level
@@ -53,7 +55,8 @@ if __name__ == '__main__':
             print(f"Training completed: total training time is {end_time - start_time}")
 
         elif args.evaluate:
-            test_on_imdb(args.model_location, args.query_file, args.query_sub_plan_file)
+            test_on_imdb(args.model_location, args.query_file, args.query_sub_plan_file, args.SPERCENTAGE,
+                         args.query_sample_location, args.save_dir)
 
 
 

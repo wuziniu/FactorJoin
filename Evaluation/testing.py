@@ -48,15 +48,23 @@ def get_job_sub_plan_queires(query_folder):
 	return all_queries, all_sub_plan_queries_str
 
 
-def test_on_imdb(model_path, query_file, query_sub_plan_file, save_res=None):
+def test_on_imdb(model_path, query_file, query_sub_plan_file, SPERCENTAGE=None, query_sample_location=None,
+				 save_res=None):
 	"""
 	Evaluate the trained FactorJoin model on the IMDB-JOB workload.
 	:param model_path: the trained model
 	:param query_file: a dictionary of queries, e.g. '1a': SQL query string for query '1a'
 	:param query_sub_plan_file: a dictionary of all subplans of a query,
+	:param SPERCENTAGE: the sampling rate for doing base table cardinality estimation
+	:param query_sample_location: if there exist a materialized sample that we can directly load from.
 	"""
 	with open(model_path, "rb") as f:
 		bound_ensemble = pickle.load(f)
+	if SPERCENTAGE:
+		bound_ensemble.SPERCENTAGE = SPERCENTAGE
+	if query_sample_location:
+		bound_ensemble.query_sample_location = bound_ensemble
+
 	with open(query_file, "rb") as f:
 		all_queries = pickle.load(f)
 	with open(query_sub_plan_file, "rb") as f:
