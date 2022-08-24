@@ -6,9 +6,9 @@ import pandas as pd
 import time
 
 from Schemas.imdb.schema import gen_imdb_schema
-from Schemas.stats.schema import gen_stats_light_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, Table_bucket
 from Join_scheme.binning import apply_binning_to_data_value_count
+from Join_scheme.bound import Factor
 
 logger = logging.getLogger(__name__)
 
@@ -52,18 +52,19 @@ def read_table_csv(table_obj, csv_seperator=',', stats=True):
 
 def make_sample(np_data, nrows=1000000, seed=0):
     np.random.seed(seed)
-    if len(np_data) <= nrows:
-        return np_data, 1.0
+    samp_data = np_data[np_data != -1]
+    if len(samp_data) <= nrows:
+        return samp_data, 1.0
     else:
-        selected = np.random.choice(len(np_data), size=nrows, replace=False)
-        return np_data[selected], nrows/len(np_data)
+        selected = np.random.choice(len(samp_data), size=nrows, replace=False)
+        return samp_data[selected], nrows / len(samp_data)
 
 
 def stats_analysis(sample, data, sample_rate, show=10):
     n, c = np.unique(sample, return_counts=True)
     idx = np.argsort(c)[::-1]
     for i in range(min(show, len(idx))):
-        print(c[idx[i]], c[idx[i]]/sample_rate, len(data[data == n[idx[i]]]))
+        print(c[idx[i]], c[idx[i]] / sample_rate, len(data[data == n[idx[i]]]))
 
 
 def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_values):
@@ -84,7 +85,6 @@ def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_value
     return all_factors
 
 
-
 def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_bucket_bins=False):
     schema = gen_imdb_schema(data_path)
     all_keys, equivalent_keys = identify_key_values(schema)
@@ -98,7 +98,6 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
                               sep=",")
 
         df_rows.columns = [table_obj.table_name + '.' + attr for attr in table_obj.attributes]
-
         for attribute in table_obj.irrelevant_attributes:
             df_rows = df_rows.drop(table_obj.table_name + '.' + attribute, axis=1)
 
@@ -120,7 +119,7 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
     sample_rate = dict()
     sampled_data = dict()
     for k in data:
-        temp = make_sample(data[k], sample_size)
+        temp = make_sample(data[k], 1000000)
         sampled_data[k] = temp[0]
         sample_rate[k] = temp[1]
 
@@ -128,14 +127,17 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
     bin_size = dict()
     all_bin_modes = dict()
     for PK in equivalent_keys:
+        # if PK != 'kind_type.id':
+        #   continue
         group_data = {}
         group_sample_rate = {}
         for K in equivalent_keys[PK]:
             group_data[K] = sampled_data[K]
             group_sample_rate[K] = sample_rate[K]
-        _, optimal_bucket = sub_optimal_bucketize(group_data, group_sample_rate, n_bins=n_bins[PK], primary_keys=primary_keys)
+        _, optimal_bucket = sub_optimal_bucketize(group_data, group_sample_rate, n_bins=n_bins[PK],
+                                                  primary_keys=primary_keys)
+        optimal_buckets[PK] = optimal_bucket
         for K in equivalent_keys[PK]:
-            optimal_buckets[K] = optimal_bucket
             temp_table_name = K.split(".")[0]
             if temp_table_name not in bin_size:
                 bin_size[temp_table_name] = dict()
@@ -155,8 +157,7 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
     ground_truth_factors_no_filter = get_ground_truth_no_filter(equivalent_keys, data, all_bins, table_lens, na_values)
 
     if save_bucket_bins:
-        with open(model_folder + f"/buckets.pkl") as f:
+        with open(model_folder + f"/imdb_buckets.pkl") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
 
     return schema, table_buckets, ground_truth_factors_no_filter
-

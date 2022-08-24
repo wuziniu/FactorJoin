@@ -6,17 +6,17 @@ import shutil
 import numpy as np
 import pandas as pd
 
-from Evaluation.training import train_one_stats
-from Evaluation.testing import test_on_stats
+from Evaluation.training import train_one_imdb
+from Evaluation.testing import test_on_imdb
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default='stats', help='Which dataset to be used')
+    parser.add_argument('--dataset', default='imdb', help='Which dataset to be used')
 
     # generate models/ensembles
     parser.add_argument('--generate_models', help='Trains BNs on dataset', action='store_true')
-    parser.add_argument('--data_path', default='stats_simplified/{}.csv')
+    parser.add_argument('--data_path', default='../data_CE/imdb/{}.csv')
     parser.add_argument('--model_path', default='../CE_scheme_models')
     parser.add_argument('--n_bins', type=int, default=200, help="The bin size on the id attributes")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
@@ -24,7 +24,9 @@ if __name__ == '__main__':
     # evaluation
     parser.add_argument('--evaluate', help='Evaluates models to compute cardinality bound', action='store_true')
     parser.add_argument('--model_location', nargs='+', default='../CE_scheme_models')
-    parser.add_argument('--query_file_location', default='workloads/stats_CEB/stats_CEB.sql')
+    parser.add_argument('--query_file', default='../job_queries/all_queries.pkl')
+    parser.add_argument('--query_sub_plan_file', default='../job_queries/all_sub_plan_queries_str.pkl')
+    parser.add_argument('--save_dir', default='../job_queries/estimates.txt')
 
     # log level
     parser.add_argument('--log_level', type=int, default=logging.DEBUG)
@@ -45,7 +47,13 @@ if __name__ == '__main__':
     print(args.dataset)
     if args.dataset == 'imdb':
         if args.generate_models:
-            table_buckets = train_one_stats(args.data_path, args.model_path, args.n_bins, args.save_bucket_bins)
+            start_time = time.time()
+            bound_ensemble = train_one_imdb(args.data_path, args.model_path, args.n_bins, args.save_bucket_bins)
+            end_time = time.time()
+            print(f"Training completed: total training time is {end_time - start_time}")
+
+        elif args.evaluate:
+            test_on_imdb(args.model_location, args.query_file, args.query_sub_plan_file)
 
 
 

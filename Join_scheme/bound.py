@@ -1,15 +1,16 @@
 import numpy as np
 import copy
-import os
-import pickle5 as pickle
+
 from Join_scheme.join_graph import get_join_hyper_graph, parse_query_all_join
 from Join_scheme.data_prepare import identify_key_values
+from Sampling.load_sample import load_sample_imdb_one_query
 
 
 class Factor:
     """
     This the class defines a multidimensional conditional probability on one table.
     """
+
     def __init__(self, table, table_len, variables, pdfs, na_values=None):
         self.table = table
         self.table_len = table_len
@@ -22,10 +23,12 @@ class Group_Factor:
     """
         This the class defines a multidimensional conditional probability on a group of tables.
     """
-    def __init__(self, tables, tables_size, pdfs, bin_modes, equivalent_groups=None, table_key_equivalent_group=None,
-                 na_values=None, join_cond=None):
+
+    def __init__(self, tables, tables_size, variables, pdfs, bin_modes, equivalent_groups=None,
+                 table_key_equivalent_group=None, na_values=None, join_cond=None):
         self.table = tables
         self.tables_size = tables_size
+        self.variables = variables
         self.pdfs = pdfs
         self.bin_modes = bin_modes
         self.equivalent_groups = equivalent_groups
@@ -38,13 +41,18 @@ class Bound_ensemble:
     """
     This the class where we store all the trained models and perform inference on the bound.
     """
-    def __init__(self, table_buckets, schema, ground_truth_factors_no_filter=None):
+
+    def __init__(self, table_buckets, schema, ground_truth_factors_no_filter=None,
+                 SPERCENTAGE=None, query_sample_location=None):
         self.table_buckets = table_buckets
         self.schema = schema
         self.all_keys, self.equivalent_keys = identify_key_values(schema)
         self.all_join_conds = None
         self.ground_truth_factors_no_filter = ground_truth_factors_no_filter
-        #self.reverse_table_alias = None
+        self.SPERCENTAGE = SPERCENTAGE
+        self.query_sample_location = query_sample_location
+
+        # self.reverse_table_alias = None
 
     def parse_query_simple(self, query):
         """
@@ -52,15 +60,19 @@ class Bound_ensemble:
         join query. Otherwise, use parse_query function.
         """
         tables_all, join_cond, join_keys = parse_query_all_join(query)
-        #TODO: implement functions on parsing filter conditions.
+        # TODO: implement functions on parsing filter conditions.
         table_filters = dict()
         return tables_all, table_filters, join_cond, join_keys
 
     def get_all_id_conidtional_distribution(self, query_file_name, tables_alias, join_keys):
-        #TODO: make it work on query-driven and sampling based
-        return load_sample_imdb_one_query(self.table_buckets, tables_alias, query_file_name, join_keys,
-                                          self.ground_truth_factors_no_filter)
-
+        # TODO: make it work on query-driven methods
+        if self.query_sample_location is not None:
+            return load_sample_imdb_one_query(self.table_buckets, tables_alias, query_file_name, join_keys,
+                                              self.ground_truth_factors_no_filter, self.SPERCENTAGE,
+                                              self.query_sample_location)
+        else:
+            # TODO: sample on the fly
+            return
 
     def eliminate_one_key_group(self, tables, key_group, factors, relevant_keys):
         """This version only supports 2D distributions (i.e. the distribution learned with tree-structured PGM)"""
@@ -127,8 +139,7 @@ class Bound_ensemble:
         temp_all_modes = np.stack(temp_all_modes, axis=0)
         multiplier = np.prod(temp_all_modes, axis=0)
         non_zero_idx = np.where(multiplier != 0)[0]
-        min_number = np.amin(all_probs[:, non_zero_idx]/temp_all_modes[:, non_zero_idx], axis=0)
-        #print(min_number, multiplier[non_zero_idx])
+        min_number = np.amin(all_probs[:, non_zero_idx] / temp_all_modes[:, non_zero_idx], axis=0)
         if return_factor:
             new_probs = np.zeros(multiplier.shape)
             new_probs[non_zero_idx] = multiplier[non_zero_idx] * min_number
@@ -165,7 +176,7 @@ class Bound_ensemble:
         optimal_order = list(equivalent_group.keys())
         for i in range(len(optimal_order)):
             min_idx = i
-            for j in range(i+1, len(optimal_order)):
+            for j in range(i + 1, len(optimal_order)):
                 min_group = optimal_order[min_idx]
                 curr_group = optimal_order[j]
                 if np.max(cardinalities[curr_group]) < np.max(cardinalities[min_group]):
@@ -187,7 +198,7 @@ class Bound_ensemble:
         equivalent_group = get_join_hyper_graph(join_keys, self.equivalent_keys)
         conditional_factors = self.get_all_id_conidtional_distribution(table_queries, join_keys, equivalent_group)
         optimal_order, tables_involved, relevant_keys = self.get_optimal_elimination_order(equivalent_group, join_keys,
-                                                                            conditional_factors)
+                                                                                           conditional_factors)
 
         for key_group in optimal_order:
             tables = tables_involved[key_group]
@@ -197,7 +208,7 @@ class Bound_ensemble:
     def get_sub_plan_queries_sql(self, query_str, sub_plan_query_str_all, query_name=None):
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group, table_equivalent_group, table_key_equivalent_group = get_join_hyper_graph(join_keys,
-                                                                                            self.equivalent_keys)
+                                                                                                    self.equivalent_keys)
         cached_sub_queries_sql = dict()
         cached_union_key_group = dict()
         res_sql = []
@@ -220,9 +231,9 @@ class Bound_ensemble:
                 else:
                     curr_sql = right_sql
                 additional_joins, union_key_group = self.get_additional_join_with_table_group(left_tables,
-                                                                        right_union_key_group,
-                                                                        table_equivalent_group,
-                                                                        table_key_equivalent_group)
+                                                                                              right_union_key_group,
+                                                                                              table_equivalent_group,
+                                                                                              table_key_equivalent_group)
                 for join in additional_joins:
                     curr_sql = curr_sql + " AND " + join
             else:
@@ -235,8 +246,8 @@ class Bound_ensemble:
                     curr_sql += ("(" + table_queries[right_tables] + ")")
 
                 additional_joins, union_key_group = self.get_additional_joins_two_tables(left_tables, right_tables,
-                                                                        table_equivalent_group,
-                                                                        table_key_equivalent_group)
+                                                                                         table_equivalent_group,
+                                                                                         table_key_equivalent_group)
                 for join in additional_joins:
                     if curr_sql == "":
                         curr_sql += join
@@ -247,7 +258,8 @@ class Bound_ensemble:
             res_sql.append(sql_header + curr_sql + ";")
         return res_sql
 
-    def get_cardinality_bound_all(self, query_str, sub_plan_query_str_all, query_name=None, debug=False, true_card=None):
+    def get_cardinality_bound_all(self, query_str, sub_plan_query_str_all, query_name=None, debug=False,
+                                  true_card=None):
         """
         Get the cardinality bounds for all sub_plan_queires of a query.
         Note: Due to efficiency, this current version only support left_deep plans (like the one generated by postgres),
@@ -257,20 +269,17 @@ class Bound_ensemble:
                it should be sorted by number of the tables in the sub_plan_query
         """
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
-        #print(join_cond)
-        #print(join_keys)
         equivalent_group, table_equivalent_group, table_key_equivalent_group, table_key_group_map = \
             get_join_hyper_graph(join_keys, self.equivalent_keys)
         conditional_factors = self.get_all_id_conidtional_distribution(query_name, tables_all, join_keys)
-        #self.reverse_table_alias = {v: k for k, v in tables_all.items()}
+        # self.reverse_table_alias = {v: k for k, v in tables_all.items()}
         cached_sub_queries = dict()
         cardinality_bounds = []
         for i, (left_tables, right_tables) in enumerate(sub_plan_query_str_all):
             assert " " not in left_tables, f"{left_tables} contains more than one tables, violating left deep plan"
             sub_plan_query_list = right_tables.split(" ") + [left_tables]
             sub_plan_query_list.sort()
-            sub_plan_query_str = " ".join(sub_plan_query_list)  #get the string name of the sub plan query
-            #print(sub_plan_query_str)
+            sub_plan_query_str = " ".join(sub_plan_query_list)  # get the string name of the sub plan query
             if " " in right_tables:
                 assert right_tables in cached_sub_queries, f"{right_tables} not in cache, input is not ordered"
                 right_bound_factor = cached_sub_queries[right_tables]
@@ -300,11 +309,9 @@ class Bound_ensemble:
                 if true_card[i] == -1:
                     error = "NA"
                 else:
-                    error = max(res/true_card[i], true_card[i]/res)
-                print(f"{left_tables}, {right_tables}|| estimate: {res}, true: {true_card[i]}, error: {error}")
+                    error = max(res / true_card[i], true_card[i] / res)
             cardinality_bounds.append(res)
         return cardinality_bounds
-
 
     def join_with_one_table(self, sub_plan_query_str, left_table, tables_all, right_bound_factor, cond_factor_left,
                             table_equivalent_group, table_key_equivalent_group, table_key_group_map, join_cond):
@@ -322,22 +329,25 @@ class Bound_ensemble:
         key_group_bin_mode = dict()
         new_union_key_group = dict()
         new_na_values = dict()
+        right_variables = right_bound_factor.variables
+        new_variables = copy.deepcopy(right_variables)
         res = right_bound_factor.tables_size
-        print("==================================================")
         for key_group in equivalent_key_group:
-            print(key_group, equivalent_key_group[key_group], res)
-            #print(cond_factor_left.na_values)
-            #print(right_bound_factor.na_values)
             all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len * cond_factor_left.na_values[key]
-                        for key in equivalent_key_group[key_group]["left"]] + \
-                       [right_bound_factor.pdfs[key] * res * right_bound_factor.na_values[key]
-                        for key in equivalent_key_group[key_group]["right"]]
-            all_bin_modes = [bin_mode_left[key] for key in equivalent_key_group[key_group]["left"]] + \
-                            [bin_mode_right[key] for key in equivalent_key_group[key_group]["right"]]
-            if key_group == "info_type.id":
-                print(all_pdfs)
-                print("****************************************************")
-                print(all_bin_modes)
+                        for key in equivalent_key_group[key_group]["left"]]
+            all_bin_modes = [bin_mode_left[key] for key in equivalent_key_group[key_group]["left"]]
+            for key in equivalent_key_group[key_group]["left"]:
+                new_variables[key] = key_group
+            for key in equivalent_key_group[key_group]["right"]:
+                if key in right_bound_factor.pdfs:
+                    new_variables[key] = key_group
+                    all_pdfs.append(right_bound_factor.pdfs[key] * res * right_bound_factor.na_values[key])
+                    all_bin_modes.append(bin_mode_right[key])
+                else:
+                    key = right_variables[key]
+                    all_pdfs.append(right_bound_factor.pdfs[key] * res * right_bound_factor.na_values[key])
+                    all_bin_modes.append(bin_mode_right[key])
+
             new_pdf, new_bin_mode = self.compute_bound_oned(all_pdfs, all_bin_modes, return_factor=True)
             res = np.sum(new_pdf)
             if res == 0:
@@ -351,20 +361,22 @@ class Bound_ensemble:
             new_na_values[key_group] = 1
 
         for group in union_key_group:
-            table, keys = union_key_group[group]
-            new_union_key_group[group] = keys
-            for key in keys:
-                if table == "left":
-                    key_group_pdf[key] = cond_factor_left.pdfs[key]
-                    key_group_bin_mode[key] = self.table_buckets[tables_all[left_table]].oned_bin_modes[key]
-                    new_na_values[key] = cond_factor_left.na_values[key]
-                else:
-                    key_group_pdf[key] = right_bound_factor.pdfs[key]
-                    key_group_bin_mode[key] = right_bound_factor.bin_modes[key]
-                    new_na_values[key] = right_bound_factor.na_values[key]
+            if group not in new_union_key_group:
+                new_union_key_group[group] = []
+            for table, keys in union_key_group[group]:
+                for key in keys:
+                    new_union_key_group[group].append(key)
+                    if table == "left":
+                        key_group_pdf[key] = cond_factor_left.pdfs[key]
+                        key_group_bin_mode[key] = self.table_buckets[tables_all[left_table]].oned_bin_modes[key]
+                        new_na_values[key] = cond_factor_left.na_values[key]
+                    else:
+                        key_group_pdf[key] = right_bound_factor.pdfs[key]
+                        key_group_bin_mode[key] = right_bound_factor.bin_modes[key]
+                        new_na_values[key] = right_bound_factor.na_values[key]
 
-        new_factor = Group_Factor(sub_plan_query_str, res, key_group_pdf, key_group_bin_mode,
-                                  union_key_group_set, new_union_key_group, new_na_values)
+        new_factor = Group_Factor(sub_plan_query_str, res, new_variables, key_group_pdf, key_group_bin_mode,
+                                  union_key_group_set, new_union_key_group, new_na_values, new_join_cond)
         return new_factor, res
 
     def get_join_keys_with_table_group(self, left_table, right_bound_factor, tables_all, table_equivalent_group,
@@ -386,7 +398,7 @@ class Bound_ensemble:
                 key1 = cond.split("=")[0].strip()
                 key2 = cond.split("=")[1].strip()
                 if key1.split(".")[0] == left_table:
-                    key_left = key1.replace(left_table, tables_all[left_table])
+                    key_left = tables_all[left_table] + "." + key1.split(".")[-1]
                     key_group = table_key_group_map[left_table][key_left]
                     if key_group not in equivalent_key_group:
                         equivalent_key_group[key_group] = dict()
@@ -395,7 +407,7 @@ class Bound_ensemble:
                     else:
                         equivalent_key_group[key_group]["left"] = [key_left]
                     right_table = key2.split(".")[0]
-                    key_right = key2.replace(right_table, tables_all[right_table])
+                    key_right = tables_all[right_table] + "." + key2.split(".")[-1]
                     key_group_t = table_key_group_map[right_table][key_right]
                     assert key_group_t == key_group, f"key group mismatch for join {cond}"
                     if "right" in equivalent_key_group[key_group]:
@@ -404,7 +416,7 @@ class Bound_ensemble:
                         equivalent_key_group[key_group]["right"] = [key_right]
                 else:
                     assert key2.split(".")[0] == left_table, f"unrecognized table alias"
-                    key_left = key2.replace(left_table, tables_all[left_table])
+                    key_left = tables_all[left_table] + "." + key2.split(".")[-1]
                     key_group = table_key_group_map[left_table][key_left]
                     if key_group not in equivalent_key_group:
                         equivalent_key_group[key_group] = dict()
@@ -413,7 +425,7 @@ class Bound_ensemble:
                     else:
                         equivalent_key_group[key_group]["left"] = [key_left]
                     right_table = key1.split(".")[0]
-                    key_right = key1.replace(right_table, tables_all[right_table])
+                    key_right = tables_all[right_table] + "." + key1.split(".")[-1]
                     key_group_t = table_key_group_map[right_table][key_right]
                     assert key_group_t == key_group, f"key group mismatch for join {cond}"
                     if "right" in equivalent_key_group[key_group]:
@@ -423,11 +435,33 @@ class Bound_ensemble:
 
             for group in union_key_group_set:
                 if group in equivalent_key_group:
-                    continue
-                elif group in table_key_equivalent_group[left_table]:
-                    union_key_group[group] = ("left", table_key_equivalent_group[left_table][group])
+                    new_left_key = []
+                    for key in table_key_equivalent_group[left_table][group]:
+                        if key not in equivalent_key_group[group]["left"]:
+                            new_left_key.append(key)
+                    if len(new_left_key) != 0:
+                        union_key_group[group] = [("left", new_left_key)]
+                    new_right_key = []
+                    for key in right_bound_factor.table_key_equivalent_group[group]:
+                        if key not in equivalent_key_group[group]["right"]:
+                            new_right_key.append(key)
+                    if len(new_right_key) != 0:
+                        if group in union_key_group:
+                            union_key_group[group].append(("right", new_right_key))
+                        else:
+                            union_key_group[group] = [("right", new_right_key)]
                 else:
-                    union_key_group[group] = ("right", right_bound_factor.table_key_equivalent_group[group])
+                    if group in table_key_equivalent_group[left_table]:
+                        if group in union_key_group:
+                            union_key_group[group].append(("left", table_key_equivalent_group[left_table][group]))
+                        else:
+                            union_key_group[group] = [("left", table_key_equivalent_group[left_table][group])]
+                    if group in right_bound_factor.table_key_equivalent_group:
+                        if group in union_key_group:
+                            union_key_group[group].append(
+                                ("right", right_bound_factor.table_key_equivalent_group[group]))
+                        else:
+                            union_key_group[group] = [("right", right_bound_factor.table_key_equivalent_group[group])]
 
         else:
             common_key_group = table_equivalent_group[left_table].intersection(right_bound_factor.equivalent_groups)
@@ -437,10 +471,18 @@ class Bound_ensemble:
                     equivalent_key_group[group] = dict()
                     equivalent_key_group[group]["left"] = table_key_equivalent_group[left_table][group]
                     equivalent_key_group[group]["right"] = right_bound_factor.table_key_equivalent_group[group]
-                elif group in table_key_equivalent_group[left_table]:
-                    union_key_group[group] = ("left", table_key_equivalent_group[left_table][group])
                 else:
-                    union_key_group[group] = ("right", right_bound_factor.table_key_equivalent_group[group])
+                    if group in table_key_equivalent_group[left_table]:
+                        if group in union_key_group:
+                            union_key_group[group].append(("left", table_key_equivalent_group[left_table][group]))
+                        else:
+                            union_key_group[group] = [("left", table_key_equivalent_group[left_table][group])]
+                    if group in right_bound_factor.table_key_equivalent_group:
+                        if group in union_key_group:
+                            union_key_group[group].append(
+                                ("right", right_bound_factor.table_key_equivalent_group[group]))
+                        else:
+                            union_key_group[group] = [("right", right_bound_factor.table_key_equivalent_group[group])]
 
         return equivalent_key_group, union_key_group_set, union_key_group, new_join_cond
 
@@ -475,10 +517,6 @@ class Bound_ensemble:
         equivalent_key_group, union_key_group_set, union_key_group, new_join_cond = \
             self.get_join_keys_two_tables(left_table, right_table, table_equivalent_group, table_key_equivalent_group,
                                           table_key_group_map, join_cond, join_keys, tables_all)
-        #print(left_table, right_table)
-        #print(equivalent_key_group)
-        #print(union_key_group)
-        #print(conditional_factors.keys())
         cond_factor_left = conditional_factors[left_table]
         cond_factor_right = conditional_factors[right_table]
         bin_mode_left = self.table_buckets[tables_all[left_table]].oned_bin_modes
@@ -488,24 +526,20 @@ class Bound_ensemble:
         new_union_key_group = dict()
         res = cond_factor_right.table_len
         new_na_values = dict()
-        #print(equivalent_key_group)
+        new_variables = dict()
         for key_group in equivalent_key_group:
-            #print(key_group)
-            #print("========================")
-            #print(bin_mode_left.keys())
-            #print(equivalent_key_group[key_group][left_table])
-            #print("==========================================")
-            #print(bin_mode_right.keys())
-            #print(equivalent_key_group[key_group][right_table])
+            #if len(equivalent_key_group[key_group][left_table]) > 1:
+             #   print(len(equivalent_key_group[key_group][left_table]), sub_plan_query_str)
+            #if len(equivalent_key_group[key_group][right_table]) > 1:
+             #   print(len(equivalent_key_group[key_group][right_table]), sub_plan_query_str)
             all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len * cond_factor_left.na_values[key]
                         for key in equivalent_key_group[key_group][left_table]] + \
                        [cond_factor_right.pdfs[key] * res * cond_factor_right.na_values[key]
                         for key in equivalent_key_group[key_group][right_table]]
             all_bin_modes = [bin_mode_left[key] for key in equivalent_key_group[key_group][left_table]] + \
                             [bin_mode_right[key] for key in equivalent_key_group[key_group][right_table]]
-            #print("====================================================")
-            #print(equivalent_key_group[key_group][left_table])
-            #print(equivalent_key_group[key_group][right_table])
+            for key in equivalent_key_group[key_group][left_table] + equivalent_key_group[key_group][right_table]:
+                new_variables[key] = key_group
             new_pdf, new_bin_mode = self.compute_bound_oned(all_pdfs, all_bin_modes, return_factor=True)
             res = np.sum(new_pdf)
             key_group_pdf[key_group] = new_pdf / res
@@ -514,14 +548,16 @@ class Bound_ensemble:
             new_na_values[key_group] = 1.0
 
         for group in union_key_group:
-            table, keys = union_key_group[group]
-            new_union_key_group[group] = keys
-            for key in keys:
-                key_group_pdf[key] = conditional_factors[table].pdfs[key]
-                key_group_bin_mode[key] = self.table_buckets[tables_all[table]].oned_bin_modes[key]
-                new_na_values[key] = conditional_factors[table].na_values[key]
+            if group not in new_union_key_group:
+                new_union_key_group[group] = []
+            for table, keys in union_key_group[group]:
+                for key in keys:
+                    new_union_key_group[group].append(key)
+                    key_group_pdf[key] = conditional_factors[table].pdfs[key]
+                    key_group_bin_mode[key] = self.table_buckets[tables_all[table]].oned_bin_modes[key]
+                    new_na_values[key] = conditional_factors[table].na_values[key]
 
-        new_factor = Group_Factor(sub_plan_query_str, res, key_group_pdf, key_group_bin_mode,
+        new_factor = Group_Factor(sub_plan_query_str, res, new_variables, key_group_pdf, key_group_bin_mode,
                                   union_key_group_set, new_union_key_group, new_na_values, new_join_cond)
         return new_factor, res
 
@@ -543,7 +579,7 @@ class Bound_ensemble:
                 key1 = cond.split("=")[0].strip()
                 key2 = cond.split("=")[1].strip()
                 if key1.split(".")[0] == left_table:
-                    key_left = key1.replace(left_table, tables_all[left_table])
+                    key_left = tables_all[left_table] + "." + key1.split(".")[-1]
                     key_group = table_key_group_map[left_table][key_left]
                     if key_group not in equivalent_key_group:
                         equivalent_key_group[key_group] = dict()
@@ -552,7 +588,7 @@ class Bound_ensemble:
                     else:
                         equivalent_key_group[key_group][left_table] = [key_left]
                     assert key2.split(".")[0] == right_table, f"unrecognized table alias"
-                    key_right = key2.replace(right_table, tables_all[right_table])
+                    key_right = tables_all[right_table] + "." + key2.split(".")[-1]
                     key_group_t = table_key_group_map[right_table][key_right]
                     assert key_group_t == key_group, f"key group mismatch for join {cond}"
                     if right_table in equivalent_key_group[key_group]:
@@ -561,7 +597,7 @@ class Bound_ensemble:
                         equivalent_key_group[key_group][right_table] = [key_right]
                 else:
                     assert key2.split(".")[0] == left_table, f"unrecognized table alias"
-                    key_left = key2.replace(left_table, tables_all[left_table])
+                    key_left = tables_all[left_table] + "." + key2.split(".")[-1]
                     key_group = table_key_group_map[left_table][key_left]
                     if key_group not in equivalent_key_group:
                         equivalent_key_group[key_group] = dict()
@@ -570,7 +606,7 @@ class Bound_ensemble:
                     else:
                         equivalent_key_group[key_group][left_table] = [key_left]
                     assert key1.split(".")[0] == right_table, f"unrecognized table alias"
-                    key_right = key1.replace(right_table, tables_all[right_table])
+                    key_right = tables_all[right_table] + "." + key1.split(".")[-1]
                     key_group_t = table_key_group_map[right_table][key_right]
                     assert key_group_t == key_group, f"key group mismatch for join {cond}"
                     if right_table in equivalent_key_group[key_group]:
@@ -580,11 +616,32 @@ class Bound_ensemble:
 
             for group in union_key_group_set:
                 if group in equivalent_key_group:
-                    continue
-                elif group in table_key_equivalent_group[left_table]:
-                    union_key_group[group] = (left_table, table_key_equivalent_group[left_table][group])
+                    new_left_key = []
+                    for key in table_key_equivalent_group[left_table][group]:
+                        if key not in equivalent_key_group[group][left_table]:
+                            new_left_key.append(key)
+                    if len(new_left_key) != 0:
+                        union_key_group[group] = [(left_table, new_left_key)]
+                    new_right_key = []
+                    for key in table_key_equivalent_group[right_table][group]:
+                        if key not in equivalent_key_group[group][right_table]:
+                            new_right_key.append(key)
+                    if len(new_right_key) != 0:
+                        if group in union_key_group:
+                            union_key_group[group].append((right_table, new_right_key))
+                        else:
+                            union_key_group[group] = [(right_table, new_right_key)]
                 else:
-                    union_key_group[group] = (right_table, table_key_equivalent_group[right_table][group])
+                    if group in table_key_equivalent_group[left_table]:
+                        if group in union_key_group:
+                            union_key_group[group].append((left_table, table_key_equivalent_group[left_table][group]))
+                        else:
+                            union_key_group[group] = [(left_table, table_key_equivalent_group[left_table][group])]
+                    if group in table_key_equivalent_group[right_table]:
+                        if group in union_key_group:
+                            union_key_group[group].append((right_table, table_key_equivalent_group[right_table][group]))
+                        else:
+                            union_key_group[group] = [(right_table, table_key_equivalent_group[right_table][group])]
 
         else:
             common_key_group = table_equivalent_group[left_table].intersection(table_equivalent_group[right_table])
@@ -595,9 +652,15 @@ class Bound_ensemble:
                     equivalent_key_group[group][left_table] = table_key_equivalent_group[left_table][group]
                     equivalent_key_group[group][right_table] = table_key_equivalent_group[right_table][group]
                 elif group in table_key_equivalent_group[left_table]:
-                    union_key_group[group] = (left_table, table_key_equivalent_group[left_table][group])
+                    if group in union_key_group:
+                        union_key_group[group].append((left_table, table_key_equivalent_group[left_table][group]))
+                    else:
+                        union_key_group[group] = [(left_table, table_key_equivalent_group[left_table][group])]
                 else:
-                    union_key_group[group] = (right_table, table_key_equivalent_group[right_table][group])
+                    if group in union_key_group:
+                        union_key_group[group].append((right_table, table_key_equivalent_group[right_table][group]))
+                    else:
+                        union_key_group[group] = [(right_table, table_key_equivalent_group[right_table][group])]
 
         return equivalent_key_group, union_key_group_set, union_key_group, new_join_cond
 
@@ -654,52 +717,3 @@ class Bound_ensemble:
                 join_keys[table2].add(key2)
 
         return join_keys
-
-
-def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, join_keys, table_key_equivalent_group,
-                               SPERCENTAGE=10.0, qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/"):
-    qdir = qdir.format(SPERCENTAGE)
-    fpath = os.path.join(qdir, query_file_name)
-    with open(fpath, "rb") as f:
-        data = pickle.load(f)
-
-    conditional_factors = dict()
-    table_pdfs = dict()
-    filter_size = dict()
-    for i, alias in enumerate(data["all_aliases"]):
-        column = data["all_columns"][i]
-        alias = alias[0]
-        key = tables_alias[alias] + "." + column
-        cards = data["results"][i][0]
-        n_bins = table_buckets[tables_alias[alias]].bin_sizes[key]
-        pdfs = np.zeros(n_bins)
-        for (j, val) in cards:
-            if j is None:
-                j = 0
-            pdfs[j] += val
-        table_len = np.sum(pdfs)
-        print(alias+"."+column, table_len, pdfs)
-        if table_len == 0:
-            # no sample satisfy the filter, set it with a small value
-            #print("========================", alias+"."+column)
-            table_len = 1
-            pdfs = table_key_equivalent_group[tables_alias[alias]].pdfs[key]
-        else:
-            pdfs /= table_len
-        if alias not in table_pdfs:
-            table_pdfs[alias] = dict()
-            filter_size[alias] = table_len
-        table_pdfs[alias][key] = pdfs
-
-    for alias in tables_alias:
-        if alias in table_pdfs:
-            table_len = min(table_key_equivalent_group[tables_alias[alias]].table_len,
-                            filter_size[alias]/(SPERCENTAGE/100))
-            na_values = table_key_equivalent_group[tables_alias[alias]].na_values
-            conditional_factors[alias] = Factor(tables_alias[alias], table_len, list(table_pdfs[alias].keys()),
-                                                table_pdfs[alias], na_values)
-        else:
-            #TODO: ground-truth distribution
-            conditional_factors[alias] = table_key_equivalent_group[tables_alias[alias]]
-    return conditional_factors
-
