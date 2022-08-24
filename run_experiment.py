@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--generate_models', help='Trains BNs on dataset', action='store_true')
     parser.add_argument('--data_path', default='../data_CE/imdb/{}.csv')
     parser.add_argument('--model_path', default='../CE_scheme_models')
-    parser.add_argument('--n_bins', type=int, default=200, help="The bin size on the id attributes")
+    parser.add_argument('--n_bins', type=int, default=None, help="The bin size on the id attributes")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
 
     # evaluation
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--query_sub_plan_file', default='../job_queries/all_sub_plan_queries_str.pkl')
     parser.add_argument('--SPERCENTAGE', type=float, default=1.0)
     parser.add_argument('--query_sample_location', type=str, default=None)
-    parser.add_argument('--save_dir', default='../job_queries/estimates.txt')
+    parser.add_argument('--save_folder', default='../job_queries/estimates.txt')
 
     # log level
     parser.add_argument('--log_level', type=int, default=logging.DEBUG)
@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
         elif args.evaluate:
             test_on_imdb(args.model_location, args.query_file, args.query_sub_plan_file, args.SPERCENTAGE,
-                         args.query_sample_location, args.save_dir)
+                         args.query_sample_location, args.save_folder)
 
 
 
