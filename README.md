@@ -40,11 +40,11 @@ The optimal trained models for each dataset are already stored. If you are only 
   python run_experiment.py --dataset imdb
          --evaluate
          --model_path /home/ubuntu/data_CE/CE_scheme_models/model_imdb_default.pkl
-         --query_file_location job_queries/all_queries.pkl
+         --query_file job_queries/all_queries.pkl
          --query_sub_plan_file job_queries/all_sub_plan_queries_str.pkl
          --SPERCENTAGE 1.0
          --query_sample_location job_queries/materialized_sample/{}/job/all_job/
-         --save_folder /home/ubuntu/data_CE/CE_scheme_models/
+         --save_folder /home/ubuntu/data_CE/CE_scheme_models/model_imdb_default_est.txt
   ```
   model_path: the location for the saved model
   
@@ -75,7 +75,7 @@ The optimal trained models for each dataset are already stored. If you are only 
   python send_query.py --dataset imdb
          --method_name [method].txt
          --query_file job_queries/all_queries_original.sql
-         --save_folder job_queries/results
+         --save_folder job_queries/results/
   ```
   
   In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect of the postgres cache and make fair comparisons among all methods.
