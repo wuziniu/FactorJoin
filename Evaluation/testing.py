@@ -1,4 +1,4 @@
-import pickle
+import pickle5 as pickle
 import time
 import os
 
@@ -63,7 +63,7 @@ def test_on_imdb(model_path, query_file, query_sub_plan_file, SPERCENTAGE=None, 
 	if SPERCENTAGE:
 		bound_ensemble.SPERCENTAGE = SPERCENTAGE
 	if query_sample_location:
-		bound_ensemble.query_sample_location = bound_ensemble
+		bound_ensemble.query_sample_location = query_sample_location
 
 	with open(query_file, "rb") as f:
 		all_queries = pickle.load(f)
@@ -77,7 +77,7 @@ def test_on_imdb(model_path, query_file, query_sub_plan_file, SPERCENTAGE=None, 
 		temp = bound_ensemble.get_cardinality_bound_all(all_queries[q_name], all_sub_plan_queries_str[q_name],
 														q_name + ".pkl")
 		res[q_name] = temp
-	print(time.time() - t)
+	print("total estimation latency is: ", time.time() - t)
 
 	if save_res:
 		# save the sub-plan estimates according to the query execution order (1a, 1b, ..., 33c)

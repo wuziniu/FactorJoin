@@ -1,9 +1,20 @@
 import pickle5 as pickle
 import numpy as np
 import os
-from Join_scheme.bound import Factor
 from Join_scheme.binning import apply_binning_to_data_value_count
 
+
+class Factor:
+    """
+    This the class defines a multidimensional conditional probability on one table.
+    """
+
+    def __init__(self, table, table_len, variables, pdfs, na_values=None):
+        self.table = table
+        self.table_len = table_len
+        self.variables = variables
+        self.pdfs = pdfs
+        self.na_values = na_values  # this is the percentage of data, which is not nan.
 
 def load_sample_imdb(table_buckets, tables_alias, query_file_orders, join_keys, table_key_equivalent_group,
                      SPERCENTAGE=1.0, qdir="/home/ubuntu/data_CE/saved_models/binned_cards/{}/job/all_job/"):
