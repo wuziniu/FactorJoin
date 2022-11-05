@@ -43,10 +43,11 @@ def test_trained_BN_on_stats(bn, t_name):
         assert min(pred, np.sum(id_probs)) / max(pred, np.sum(id_probs)) <= 1.5, "query_id_prob is incorrect"
 
 
-def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method="greedy", save_bucket_bins=False,
-                    validate=True, actual_data=None):
+def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, bucket_method="greedy",
+                    save_bucket_bins=False, seed=0, validate=True, actual_data=None):
+    np.random.seed(seed)
     data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size = process_stats_data(data_path,
-                                        model_folder, n_bins, bucket_method, save_bucket_bins, data=actual_data)
+                                        model_folder, n_bins, bucket_method, save_bucket_bins, actual_data=actual_data)
     all_bns = dict()
     for table in schema.tables:
         t_name = table.table_name
@@ -57,7 +58,7 @@ def train_one_stats(dataset, data_path, model_folder, n_bins=200, bucket_method=
             test_trained_BN_on_stats(bn, t_name)
         all_bns[t_name] = bn
 
-    be = Bound_ensemble(all_bns, table_buckets, schema, null_values)
+    be = Bound_ensemble(table_buckets, schema, n_dim_dist, bns=all_bns, null_value=null_values)
 
     if not os.path.exists(model_folder):
         os.mkdir(model_folder)

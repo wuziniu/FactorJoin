@@ -27,12 +27,14 @@ class Table_bucket:
     Supporting more than three dimensional bin modes requires simplifying the causal structure, which is left as a
     future work.
     """
-
-    def __init__(self, table_name, id_attributes, bin_sizes):
+    def __init__(self, table_name, id_attributes, bin_sizes, oned_bin_modes=None):
         self.table_name = table_name
         self.id_attributes = id_attributes
         self.bin_sizes = bin_sizes
-        self.oned_bin_modes = dict()
+        if oned_bin_modes:
+            self.oned_bin_modes = oned_bin_modes
+        else:
+            self.oned_bin_modes = dict()
         self.twod_bin_modes = dict()
 
 
@@ -40,7 +42,6 @@ class Bucket_group:
     """
     The class of bucketization for a group of equivalent join keys
     """
-
     def __init__(self, buckets, start_key, sample_rate, bins=None, primary_keys=[]):
         self.buckets = buckets
         self.start_key = start_key
@@ -97,7 +98,16 @@ class Bucket_group:
         for key in data:
             if key in self.primary_keys:
                 res[key] = self.bucketize_PK(data[key])
-                self.buckets[key] = Bucket(key)
+                self.buckets[key] = Bucket(key, bin_modes=np.ones(len(self.bins)))
+
+        for key in data:
+            if key in self.primary_keys:
+                continue
+            if self.sample_rate[key] < 1.0:
+                bin_modes = np.asarray(self.buckets[key].bin_modes)
+                bin_modes[bin_modes != 1] = bin_modes[bin_modes != 1] / self.sample_rate[key]
+                self.buckets[key].bin_modes = bin_modes
+
         return res
 
     def bucketize_PK(self, data):
@@ -107,6 +117,12 @@ class Bucket_group:
             res[np.isin(data, b)] = i
             remaining_data = np.setdiff1d(remaining_data, b)
         res[np.isin(data, remaining_data)] = -1
+        #if len(remaining_data) != 0:
+         #   self.bins.append(list(remaining_data))
+          #  for key in self.buckets:
+           #     if key not in self.primary_keys:
+            #        self.buckets[key].bin_modes = np.append(self.buckets[key].bin_modes, 0)
+        #res[np.isin(data, remaining_data)] = len(self.bins)
         return res
 
 
@@ -144,6 +160,19 @@ def identify_key_values(schema):
 
 def equal_freq_binning(name, data, n_bins, data_len, return_bucket=True, return_bin_means=False):
     uniques, counts = data
+    if len(uniques) <= n_bins:
+        bins = []
+        bin_modes = []
+        bin_vars = []
+        bin_means = []
+
+        for i, uni in enumerate(uniques):
+            bins.append([uni])
+            bin_modes.append(counts[i])
+            bin_vars.append(0)
+            bin_means.append(counts[i])
+        return Bucket(name, bins, bin_modes, bin_vars, bin_means)
+
     unique_counts, count_counts = np.unique(counts, return_counts=True)
     idx = np.argsort(unique_counts)
     unique_counts = unique_counts[idx]
@@ -327,7 +356,7 @@ def compute_variance_score(buckets):
 
 def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=False):
     """
-    Perform sub-optimal bucketization on a group of equivalent join keys.
+    Perform GBSA bucketization on a group of equivalent join keys.
     A greedy algorithm that assigns half of the bins to one key at a time.
     :param data: a dict of (potentially sampled) table data of the keys
                  the keys of this dict are one group of equivalent join keys
@@ -393,7 +422,6 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_
     best_bin_len = 0
     best_start_key = None
     best_buckets = None
-    all_bin_width = dict()
     for start_key in data:
         if start_key in primary_keys:
             continue
@@ -413,9 +441,6 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_
                 if len(idx) != 0:
                     bin_count = counts[idx]
                     unique_bin_keys = uniques[idx]
-                    # unique_bin_count = np.unique(bin_count)
-                    # bin_count = np.concatenate([counts[counts == j] for j in unique_bin_count])
-                    # unique_bin_keys = np.concatenate([uniques[counts == j] for j in unique_bin_count])
                     rest_buckets[key].rest_bins_remaining = np.setdiff1d(rest_buckets[key].rest_bins_remaining,
                                                                          unique_bin_keys)
                     rest_buckets[key].bin_modes[i] = np.max(bin_count)
@@ -424,7 +449,7 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_
                     rest_buckets[key].bin_width[i] = len(bin_count)
         rest_buckets[start_key] = start_bucket
         var_score = compute_variance_score(rest_buckets)
-        if len(start_bucket.bins) >= best_bin_len * 1.1:
+        if len(start_bucket.bins) >= best_bin_len * 1.1:  # some magic number here to account for small error
             best_variance_score = var_score
             best_start_key = start_key
             best_buckets = rest_buckets

@@ -24,9 +24,11 @@ if __name__ == '__main__':
     parser.add_argument('--data_path',
                         default='/home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv')
     parser.add_argument('--model_path', default='/home/ubuntu/data_CE/CE_scheme_models/')
+    parser.add_argument('--n_dim_dist', type=int, default=2, help="The dimension of the distributions")
     parser.add_argument('--n_bins', type=int, default=200, help="The bin size on the id attributes")
     parser.add_argument('--bucket_method', type=str, default="greedy", help="The bin size on the id attributes")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
+    parser.add_argument('--seed', type=int, default=0, help="random seed")
 
     # evaluation
     parser.add_argument('--evaluate', help='Evaluates models to compute cardinality bound', action='store_true')
@@ -65,7 +67,8 @@ if __name__ == '__main__':
         
         elif args.generate_models:
             start_time = time.time()
-            train_one_stats(args.dataset, args.data_path, args.model_path, args.n_bins, args.bucket_method, args.save_bucket_bins)
+            train_one_stats(args.dataset, args.data_path, args.model_path, args.n_dim_dist, args.n_bins,
+                            args.bucket_method, args.save_bucket_bins, args.seed)
             end_time = time.time()
             print(f"Training completed: total training time is {end_time - start_time}")
             
@@ -76,7 +79,8 @@ if __name__ == '__main__':
 
         elif args.update_evaluate:
             print(args.split_date)
-            #eval_update(args.data_path, args.model_path, args.n_bins, args.bucket_method, args.split_date)
+            eval_update(args.data_path, args.model_path, args.n_dim_dist, args.n_bins, args.bucket_method,
+                        args.split_date, args.seed)
 
             
 

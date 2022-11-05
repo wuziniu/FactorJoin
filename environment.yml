@@ -34,6 +34,7 @@ dependencies:
   - ipython=7.19.0
   - ipython_genutils=0.2.0
   - jedi=0.18.0
+  - jenkspy=0.2.0
   - jinja2=2.11.2
   - jpeg=9b
   - jsonschema=3.2.0

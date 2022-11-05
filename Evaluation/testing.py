@@ -17,7 +17,7 @@ def test_on_stats(model_path, query_file, save_res=None):
 		query = query_str.split("||")[0][:-1]
 		true_card = int(query_str.split("||")[-1])
 		t = time.time()
-		res = bound_ensemble.get_cardinality_bound(query)
+		res = bound_ensemble.get_cardinality_bound_one(query)
 		pred.append(res)
 		latency.append(time.time() - t)
 		qerror.append(max(res/true_card, true_card/res))

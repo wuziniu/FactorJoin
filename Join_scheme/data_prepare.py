@@ -7,8 +7,10 @@ import time
 import os
 
 from Schemas.stats.schema import gen_stats_light_schema
+from Schemas.imdb.schema import gen_imdb_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, \
-                                naive_bucketize, Table_bucket, update_bins
+                                naive_bucketize, Table_bucket, update_bins, apply_binning_to_data_value_count
+from Join_scheme.bound import Factor
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +235,7 @@ def update_table_buckets(buckets, data, binned_data, all_bin_modes, table_bucket
 
 
 def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False,
-                       return_bin_means=False, get_bin_means=False, data=None):
+                       return_bin_means=False, get_bin_means=False, actual_data=None):
     """
     Preprocessing stats data and generate optimal bucket
     :param data_path: path to stats data folder
@@ -246,8 +248,9 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         data_path += "/{}.csv"
     schema = gen_stats_light_schema(data_path)
     all_keys, equivalent_keys = identify_key_values(schema)
-    if data is None:
-        data = dict()
+    if actual_data is None:
+        actual_data = dict()
+    data = dict()
     key_data = dict()  # store the columns of all keys
     sample_rate = dict()
     primary_keys = []
@@ -257,8 +260,8 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         table_name = table_obj.table_name
         null_values[table_name] = dict()
         key_attrs[table_name] = []
-        if table_name in data:
-            df_rows = data[table_name]
+        if table_name in actual_data:
+            df_rows = copy.deepcopy(actual_data[table_name])
         else:
             df_rows = read_table_csv(table_obj, stats=True)
         for attr in df_rows.columns:
@@ -297,7 +300,8 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         if bucket_method == "greedy":
             temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         elif bucket_method == "sub_optimal":
-            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys, return_bin_means)
+            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys,
+                                                              return_bin_means)
         elif bucket_method == "naive":
             temp_data, optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         else:
@@ -412,4 +416,121 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, null_valu
             pickle.dump(buckets, f, pickle.HIGHEST_PROTOCOL)
 
     return data, new_table_buckets, null_values
+
+
+def make_sample(np_data, nrows=1000000, seed=0):
+    np.random.seed(seed)
+    samp_data = np_data[np_data != -1]
+    if len(samp_data) <= nrows:
+        return samp_data, 1.0
+    else:
+        selected = np.random.choice(len(samp_data), size=nrows, replace=False)
+        return samp_data[selected], nrows / len(samp_data)
+
+
+def stats_analysis(sample, data, sample_rate, show=10):
+    n, c = np.unique(sample, return_counts=True)
+    idx = np.argsort(c)[::-1]
+    for i in range(min(show, len(idx))):
+        print(c[idx[i]], c[idx[i]] / sample_rate, len(data[data == n[idx[i]]]))
+
+
+def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_values):
+    """
+    Get the ground-truth data distribution on each single table without filter predicates.
+    """
+    all_factor_pdfs = dict()
+    for PK in equivalent_keys:
+        bin_value = bins[PK]
+        for key in equivalent_keys[PK]:
+            table = key.split(".")[0]
+            temp = apply_binning_to_data_value_count(bin_value, data[key])
+            if table not in all_factor_pdfs:
+                all_factor_pdfs[table] = dict()
+            all_factor_pdfs[table][key] = temp / np.sum(temp)
+
+    all_factors = dict()
+    for table in all_factor_pdfs:
+        all_factors[table] = Factor(table, table_lens[table], list(all_factor_pdfs[table].keys()),
+                                    all_factor_pdfs[table], na_values[table])
+    return all_factors
+
+
+def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_bucket_bins=False):
+    schema = gen_imdb_schema(data_path)
+    all_keys, equivalent_keys = identify_key_values(schema)
+    data = dict()
+    table_lens = dict()
+    na_values = dict()
+    primary_keys = []
+    for table_obj in schema.tables:
+        df_rows = pd.read_csv(table_obj.csv_file_location, header=None, escapechar='\\', encoding='utf-8',
+                              quotechar='"',
+                              sep=",")
+
+        df_rows.columns = [table_obj.table_name + '.' + attr for attr in table_obj.attributes]
+        for attribute in table_obj.irrelevant_attributes:
+            df_rows = df_rows.drop(table_obj.table_name + '.' + attribute, axis=1)
+
+        df_rows.apply(pd.to_numeric, errors="ignore")
+        table_lens[table_obj.table_name] = len(df_rows)
+        if table_obj.table_name not in na_values:
+            na_values[table_obj.table_name] = dict()
+        for attr in df_rows.columns:
+            if attr in all_keys:
+                data[attr] = df_rows[attr].values
+                data[attr][np.isnan(data[attr])] = -1
+                data[attr][data[attr] < 0] = -1
+                na_values[table_obj.table_name][attr] = len(data[attr][data[attr] != -1]) / table_lens[
+                    table_obj.table_name]
+                data[attr] = copy.deepcopy(data[attr])[data[attr] >= 0]
+                if len(np.unique(data[attr])) >= len(data[attr]) - 10:
+                    primary_keys.append(attr)
+
+    sample_rate = dict()
+    sampled_data = dict()
+    for k in data:
+        temp = make_sample(data[k], 1000000)
+        sampled_data[k] = temp[0]
+        sample_rate[k] = temp[1]
+
+    optimal_buckets = dict()
+    bin_size = dict()
+    all_bin_modes = dict()
+    for PK in equivalent_keys:
+        # if PK != 'kind_type.id':
+        #   continue
+        group_data = {}
+        group_sample_rate = {}
+        for K in equivalent_keys[PK]:
+            group_data[K] = sampled_data[K]
+            group_sample_rate[K] = sample_rate[K]
+        _, optimal_bucket = sub_optimal_bucketize(group_data, group_sample_rate, n_bins=n_bins[PK],
+                                                  primary_keys=primary_keys)
+        optimal_buckets[PK] = optimal_bucket
+        for K in equivalent_keys[PK]:
+            temp_table_name = K.split(".")[0]
+            if temp_table_name not in bin_size:
+                bin_size[temp_table_name] = dict()
+                all_bin_modes[temp_table_name] = dict()
+            bin_size[temp_table_name][K] = len(optimal_bucket.bins)
+            all_bin_modes[temp_table_name][K] = optimal_bucket.buckets[K].bin_modes
+
+    table_buckets = dict()
+    for table_name in bin_size:
+        table_buckets[table_name] = Table_bucket(table_name, list(bin_size[table_name].keys()), bin_size[table_name],
+                                                 all_bin_modes[table_name])
+
+    all_bins = dict()
+    for key in optimal_buckets:
+        all_bins[key] = optimal_buckets[key].bins
+
+    ground_truth_factors_no_filter = get_ground_truth_no_filter(equivalent_keys, data, all_bins, table_lens, na_values)
+
+    if save_bucket_bins:
+        with open(model_folder + f"/imdb_buckets.pkl") as f:
+            pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
+
+    return schema, table_buckets, ground_truth_factors_no_filter
+
 

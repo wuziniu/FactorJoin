@@ -54,12 +54,16 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
          --generate_models
          --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv
          --model_path /home/ubuntu/data_CE/CE_scheme_models/
+         --n_dim_dist 2
          --n_bins 200
          --bucket_method greedy
   ```
   data_path: the stats dataset you just downloaded
 
   model_path: the location to save the model
+
+  n_dim_dist: the dimension of distributions (section 5.1 of the paper), i.e. the tree-width of the 
+              Bayesian factorization. We currently only support 1 or 2.
   
   n_bins: number of bins to bucketize each key group
   
@@ -107,6 +111,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
          --update_evaluate
          --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified
          --model_path /home/ubuntu/data_CE/CE_scheme_models/update/
+         --n_dim_dist 2
          --n_bins 200
          --bucket_method sub_optimal
          --split_date '2014-01-01 00:00:00'

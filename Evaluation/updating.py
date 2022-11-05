@@ -73,12 +73,13 @@ def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_fold
     print(f"models save at {model_path}")
 
 
-def eval_update(data_folder, model_path, bin_size, bucket_method, split_date="2014-01-01 00:00:00"):
+def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, split_date="2014-01-01 00:00:00", seed=0):
+    np.random.seed(seed)
     before_data, after_data = get_data_by_date(data_folder, split_date)
     print("************************************************************")
     print(f"Training the model with data before {split_date}")
     start_time = time.time()
-    train_one_stats("stats", data_folder, model_path, bin_size, bucket_method, True, actual_data=before_data)
+    train_one_stats("stats", data_folder, model_path, n_dim_dist, bin_size, bucket_method, True, actual_data=before_data)
     print(f"training completed, took {time.time() - start_time} sec")
 
     #loading the trained model and buckets

@@ -1,3 +1,4 @@
+import copy
 class StateNameMixin:
     """
     This class is inherited by classes which deal with state names of variables.
@@ -21,7 +22,7 @@ class StateNameMixin:
                     )
 
             # Make a copy, so that the original object does't get modified after operations.
-            self.state_names = state_names.copy()
+            self.state_names = copy.deepcopy(state_names)
             # Create maps for easy access to specific state names of state numbers.
             if state_names:
                 self.name_to_no = {}

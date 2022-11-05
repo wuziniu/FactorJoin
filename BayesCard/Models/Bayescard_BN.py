@@ -13,13 +13,17 @@ def multi_dim_index(a, index, new_value):
     assert a.ndim == len(index) == new_value.ndim
     new_index = []
     n = len(index)
+    #print(n)
     for i, ind in enumerate(index):
         ind = np.asarray(ind)
         if i != n-1:
-            new_shape = tuple([-1] + [1]*(n-i-1))
+            new_shape = tuple([-1] + [1] * (n-i-1))
         else:
             new_shape = -1
+        print(new_shape, len(ind))
         new_index.append(ind.reshape(new_shape))
+    #print("new_index:", new_index)
+    #print("new_value:", new_value.shape)
     a[tuple(new_index)] = new_value
     return a
 
@@ -147,11 +151,14 @@ class Bayescard_BN(BN_Single):
         incremental_model.fit(discrete_table)
 
         # incremental parameter updating
+
         for i, cpd in enumerate(self.model.cpds):
             new_cpd = incremental_model.cpds[i]
             assert set(cpd.state_names.keys()) == set(new_cpd.state_names.keys()), "cpd attribute name mismatch"
             assert cpd.variable == new_cpd.variable, "variable mismatch"
             self.model.cpds[i] = self.update_cpd_table(cpd, new_cpd)
+
+
 
         # changing meta-info
         self.nrows += self.insert_len
@@ -191,6 +198,8 @@ class Bayescard_BN(BN_Single):
         old_index = []
         for col in old_cpd.state_names:
             old_index.append([ret_cpd_state_names[col].index(x) for x in old_cpd.state_names[col]])
+        #print("========================================================")
+        #print("old value indexing")
         ret_values_old = multi_dim_index(ret_values_old, old_index, old_cpd.values)
 
         ret_values_new = np.zeros(tuple(ret_values_shape))
@@ -207,13 +216,11 @@ class Bayescard_BN(BN_Single):
                     new_cpd.values = new_cpd.values[:, array_idx]
                 else:
                     assert False, "only support 2d id distributions"
-            #temp = []
-            #for x in new_cpd.state_names[col]:
-             #   if x in ret_cpd_state_names[col]:
-              #      temp.append(ret_cpd_state_names[col].index(x))
-            #new_index.append(temp)
+            #print("new_cpd.state_names: ", len(new_cpd.state_names[col]))
             new_index.append([ret_cpd_state_names[col].index(x) for x in new_cpd.state_names[col]])
-            
+            #print("new_index:", len(new_index[-1]))
+
+        #print("new_cpd.value: ", new_cpd.values.shape)
         ret_values_new = multi_dim_index(ret_values_new, new_index, new_cpd.values)
 
         ret_values = self.nrows * ret_values_old + self.insert_len * ret_values_new
