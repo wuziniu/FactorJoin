@@ -73,6 +73,10 @@ def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_fold
     print(f"models save at {model_path}")
 
 
+def update_one_imdb():
+    "TODO: implement the update on IMDB, should be straight-forward as it uses the sampling for base-table"
+    return
+
 def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, split_date="2014-01-01 00:00:00", seed=0):
     np.random.seed(seed)
     before_data, after_data = get_data_by_date(data_folder, split_date)
@@ -105,4 +109,5 @@ def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, sp
     model_path = model_path + f"updated_model_stats_{bucket_method}_{bin_size}.pkl"
     pickle.dump(FJmodel, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"updated models save at {model_path}")
+
 

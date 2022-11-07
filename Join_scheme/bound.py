@@ -20,9 +20,14 @@ class Factor:
         self.pdfs = pdfs
         self.cardinalities = dict()
         for i, var in enumerate(self.variables):
-            self.cardinalities[var] = pdfs.shape[i]
-            if len(equivalent_variables) != 0:
-                self.cardinalities[equivalent_variables[i]] = pdfs.shape[i]
+            if type(pdfs) == dict:
+                self.cardinalities[var] = len(pdfs[var])
+                if equivalent_variables and len(equivalent_variables) != 0:
+                    self.cardinalities[equivalent_variables[i]] = pdfs[var]
+            else:
+                self.cardinalities[var] = pdfs.shape[i]
+                if equivalent_variables and len(equivalent_variables) != 0:
+                    self.cardinalities[equivalent_variables[i]] = pdfs.shape[i]
         self.na_values = na_values  # the percentage of data, which is not nan, so the variable name is misleading.
 
 

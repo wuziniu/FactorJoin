@@ -9,7 +9,8 @@ import os
 from Schemas.stats.schema import gen_stats_light_schema
 from Schemas.imdb.schema import gen_imdb_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, \
-                                naive_bucketize, Table_bucket, update_bins, apply_binning_to_data_value_count
+                                fixed_start_key_bucketize, get_start_key, naive_bucketize, \
+                                Table_bucket, update_bins, apply_binning_to_data_value_count
 from Join_scheme.bound import Factor
 
 logger = logging.getLogger(__name__)
@@ -252,6 +253,7 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         actual_data = dict()
     data = dict()
     key_data = dict()  # store the columns of all keys
+    table_key_lens = dict()
     sample_rate = dict()
     primary_keys = []
     null_values = dict()
@@ -266,6 +268,7 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
             df_rows = read_table_csv(table_obj, stats=True)
         for attr in df_rows.columns:
             if attr in all_keys:
+                table_key_lens[attr] = len(df_rows)
                 key_data[attr] = df_rows[attr].values
                 # the nan value of id are set to -1, this is hardcoded.
                 key_data[attr][np.isnan(key_data[attr])] = -1
@@ -301,9 +304,14 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
             temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         elif bucket_method == "sub_optimal":
             temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys,
-                                                              return_bin_means)
+                                                              return_bin_means, True)
         elif bucket_method == "naive":
             temp_data, optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+        elif bucket_method == "fixed_start_key":
+            start_key = get_start_key(list(group_data.keys()), table_key_lens, primary_keys)
+            temp_data, optimal_bucket = fixed_start_key_bucketize(start_key, group_data, group_sample_rate,
+                                                                  n_bins=n_bins[PK], primary_keys=primary_keys,
+                                                                  return_data=True)
         else:
             assert False, f"unrecognized bucketization method: {bucket_method}"
 
@@ -424,7 +432,7 @@ def make_sample(np_data, nrows=1000000, seed=0):
     if len(samp_data) <= nrows:
         return samp_data, 1.0
     else:
-        selected = np.random.choice(len(samp_data), size=nrows, replace=False)
+        selected = np.random.choice(len(samp_data), size=int(nrows), replace=False)
         return samp_data[selected], nrows / len(samp_data)
 
 
@@ -435,10 +443,15 @@ def stats_analysis(sample, data, sample_rate, show=10):
         print(c[idx[i]], c[idx[i]] / sample_rate, len(data[data == n[idx[i]]]))
 
 
-def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_values):
+def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_values, save_path=None):
     """
     Get the ground-truth data distribution on each single table without filter predicates.
     """
+    if save_path and os.path.exists(save_path + f"/gt_no_filter.pkl"):
+        with open(save_path + f"/gt_no_filter.pkl", "rb") as f:
+            all_factors = pickle.load(f)
+        return all_factors
+
     all_factor_pdfs = dict()
     for PK in equivalent_keys:
         bin_value = bins[PK]
@@ -452,15 +465,20 @@ def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_value
     all_factors = dict()
     for table in all_factor_pdfs:
         all_factors[table] = Factor(table, table_lens[table], list(all_factor_pdfs[table].keys()),
-                                    all_factor_pdfs[table], na_values[table])
+                                    all_factor_pdfs[table], na_values=na_values[table])
+    if save_path:
+        with open(save_path + f"/gt_no_filter.pkl", "wb") as f:
+            pickle.dump(all_factors, f, pickle.HIGHEST_PROTOCOL)
+
     return all_factors
 
 
-def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_bucket_bins=False):
+def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_size=1000000, save_bucket_bins=False):
     schema = gen_imdb_schema(data_path)
     all_keys, equivalent_keys = identify_key_values(schema)
     data = dict()
     table_lens = dict()
+    table_key_lens = dict()
     na_values = dict()
     primary_keys = []
     for table_obj in schema.tables:
@@ -478,6 +496,7 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
             na_values[table_obj.table_name] = dict()
         for attr in df_rows.columns:
             if attr in all_keys:
+                table_key_lens[attr] = table_lens[table_obj.table_name]
                 data[attr] = df_rows[attr].values
                 data[attr][np.isnan(data[attr])] = -1
                 data[attr][data[attr] < 0] = -1
@@ -490,7 +509,7 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
     sample_rate = dict()
     sampled_data = dict()
     for k in data:
-        temp = make_sample(data[k], 1000000)
+        temp = make_sample(data[k], sample_size)
         sampled_data[k] = temp[0]
         sample_rate[k] = temp[1]
 
@@ -498,6 +517,8 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
     bin_size = dict()
     all_bin_modes = dict()
     for PK in equivalent_keys:
+        #print("===============================================")
+        #print(PK)
         # if PK != 'kind_type.id':
         #   continue
         group_data = {}
@@ -505,8 +526,21 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
         for K in equivalent_keys[PK]:
             group_data[K] = sampled_data[K]
             group_sample_rate[K] = sample_rate[K]
-        _, optimal_bucket = sub_optimal_bucketize(group_data, group_sample_rate, n_bins=n_bins[PK],
-                                                  primary_keys=primary_keys)
+        if bucket_method == "greedy":
+            _, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+        elif bucket_method == "sub_optimal":
+            optimal_bucket = sub_optimal_bucketize(group_data, group_sample_rate, n_bins=n_bins[PK],
+                                                      primary_keys=primary_keys, return_data=False)
+        elif bucket_method == "naive":
+            optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, False)
+        elif bucket_method == "fixed_start_key":
+            start_key = get_start_key(list(group_data.keys()), table_key_lens, primary_keys)
+            print(start_key)
+            optimal_bucket = fixed_start_key_bucketize(start_key, group_data, group_sample_rate, n_bins=n_bins[PK],
+                                                      primary_keys=primary_keys, return_data=False)
+        else:
+            assert False, f"unrecognized bucketization method: {bucket_method}"
+
         optimal_buckets[PK] = optimal_bucket
         for K in equivalent_keys[PK]:
             temp_table_name = K.split(".")[0]
@@ -524,8 +558,10 @@ def process_imdb_data(data_path, model_folder, n_bins, sample_size=100000, save_
     all_bins = dict()
     for key in optimal_buckets:
         all_bins[key] = optimal_buckets[key].bins
+        print(key, len(all_bins[key]))
 
-    ground_truth_factors_no_filter = get_ground_truth_no_filter(equivalent_keys, data, all_bins, table_lens, na_values)
+    ground_truth_factors_no_filter = get_ground_truth_no_filter(equivalent_keys, data, all_bins, table_lens, na_values,
+                                                                model_folder)
 
     if save_bucket_bins:
         with open(model_folder + f"/imdb_buckets.pkl") as f:

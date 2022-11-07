@@ -354,7 +354,7 @@ def compute_variance_score(buckets):
     return np.sum(np.prod(all_var + all_mean ** 2, axis=0) - np.prod(all_mean, axis=0) ** 2)
 
 
-def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=False):
+def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=True):
     """
     Perform GBSA bucketization on a group of equivalent join keys.
     A greedy algorithm that assigns half of the bins to one key at a time.
@@ -402,7 +402,7 @@ def greedy_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=
     return new_data, best_buckets
 
 
-def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_bin_means=False):
+def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_bin_means=False, return_data=True):
     """
     Perform sub-optimal bucketization on a group of equivalent join keys.
     :param data: a dict of (potentially sampled) table data of the keys
@@ -427,7 +427,7 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_
             continue
         start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]), 
                                           True, return_bin_means)
-        
+        #print("start_bucket len:", len(start_bucket.bins))
         rest_buckets = dict()
         for key in data:
             if key == start_key or key in primary_keys:
@@ -462,7 +462,53 @@ def sub_optimal_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_
 
     best_buckets = Bucket_group(best_buckets, best_start_key, sample_rate, primary_keys=primary_keys)
     new_data = best_buckets.bucketize(data)
-    return new_data, best_buckets
+    if return_data:
+        return new_data, best_buckets
+    else:
+        return best_buckets
+
+
+def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_keys=[], return_data=True):
+    """
+    Perform sub-optimal bucketization on a group of equivalent join keys based on the pre-defined start_key.
+    :param data: a dict of (potentially sampled) table data of the keys
+                 the keys of this dict are one group of equivalent join keys
+    :param sample_rate: the sampling rate the data, could be all 1 if no sampling is performed
+    :param n_bins: how many bins can we allocate
+    :param primary_keys: the primary keys in the equivalent group since we don't need to bucketize PK.
+    :return: new data, where the keys are bucketized
+             the mode of each bucket
+    """
+    unique_values = dict()
+    for key in data:
+        if key not in primary_keys:
+            unique_values[key] = np.unique(data[key], return_counts=True)
+
+    start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]), True)
+    rest_buckets = dict()
+    for key in data:
+        if key == start_key or key in primary_keys:
+            continue
+        uniques = unique_values[key][0]
+        counts = unique_values[key][1]
+        rest_buckets[key] = Bucket(key, [], [0] * len(start_bucket.bins), [0] * len(start_bucket.bins),
+                                   [0] * len(start_bucket.bins), uniques)
+        for i, bin in enumerate(start_bucket.bins):
+            idx = np.where(np.isin(uniques, bin) == 1)[0]
+            if len(idx) != 0:
+                bin_count = counts[idx]
+                unique_bin_keys = uniques[idx]
+                rest_buckets[key].rest_bins_remaining = np.setdiff1d(rest_buckets[key].rest_bins_remaining,
+                                                                     unique_bin_keys)
+                rest_buckets[key].bin_modes[i] = np.max(bin_count)
+                rest_buckets[key].bin_means[i] = np.mean(bin_count)
+    rest_buckets[start_key] = start_bucket
+    best_buckets = Bucket_group(rest_buckets, start_key, sample_rate, primary_keys=primary_keys)
+    new_data = best_buckets.bucketize(data)
+    if return_data:
+        return new_data, best_buckets
+    else:
+        return best_buckets
 
 
 def naive_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=True):
@@ -515,45 +561,14 @@ def naive_bucketize(data, sample_rate, n_bins=30, primary_keys=[], return_data=T
         return best_buckets
 
 
-def fixed_start_key_bucketize(start_key, data, sample_rate, n_bins=30, primary_keys=[]):
-    """
-    Perform sub-optimal bucketization on a group of equivalent join keys based on the pre-defined start_key.
-    :param data: a dict of (potentially sampled) table data of the keys
-                 the keys of this dict are one group of equivalent join keys
-    :param sample_rate: the sampling rate the data, could be all 1 if no sampling is performed
-    :param n_bins: how many bins can we allocate
-    :param primary_keys: the primary keys in the equivalent group since we don't need to bucketize PK.
-    :return: new data, where the keys are bucketized
-             the mode of each bucket
-    """
-    unique_values = dict()
-    for key in data:
-        if key not in primary_keys:
-            unique_values[key] = np.unique(data[key], return_counts=True)
-
-    start_bucket = equal_freq_binning(start_key, unique_values[start_key], n_bins, len(data[start_key]), True)
-    rest_buckets = dict()
-    for key in data:
-        if key == start_key or key in primary_keys:
-            continue
-        uniques = unique_values[key][0]
-        counts = unique_values[key][1]
-        rest_buckets[key] = Bucket(key, [], [0] * len(start_bucket.bins), [0] * len(start_bucket.bins),
-                                   [0] * len(start_bucket.bins), uniques)
-        for i, bin in enumerate(start_bucket.bins):
-            idx = np.where(np.isin(uniques, bin) == 1)[0]
-            if len(idx) != 0:
-                bin_count = counts[idx]
-                unique_bin_keys = uniques[idx]
-                rest_buckets[key].rest_bins_remaining = np.setdiff1d(rest_buckets[key].rest_bins_remaining,
-                                                                     unique_bin_keys)
-                rest_buckets[key].bin_modes[i] = np.max(bin_count)
-                rest_buckets[key].bin_means[i] = np.mean(bin_count)
-
-    best_buckets = Bucket_group(rest_buckets, start_key, sample_rate, primary_keys=primary_keys)
-    new_data = best_buckets.bucketize(data)
-    return new_data, best_buckets
-
+def get_start_key(keys, key_lens, primary_keys):
+    best_key_len = 0
+    start_key = None
+    for k in keys:
+        if k not in primary_keys and key_lens[k] > best_key_len:
+            best_key_len = key_lens[k]
+            start_key = k
+    return start_key
 
 def bin_all_data_with_existing_binning(bins, data, sample_rate, curr_pk, return_data):
     buckets = dict()
