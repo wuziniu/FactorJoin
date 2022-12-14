@@ -1,4 +1,4 @@
-# New Cardinality Estimation Scheme
+# FactorJoin: A New Cardinality Estimation Framework for Join Queries
 
 ## Supplementary material
   The supplement material of our SIGMOD submission can be found under the home directory "sigmod_supplementary.pdf".
@@ -44,9 +44,9 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
     
    The imdb dataset can be downloaded here: http://homepages.cwi.nl/~boncz/job/imdb.tgz
    
-## Reproducing result on STATS:
+## Reproducing result on STATS-CEB:
 
-  In order to reproduce the result for STATS, 
+  In order to reproduce the result for STATS-CEB, 
   
   ### First run the following command to train the models
   ```
@@ -67,7 +67,9 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   n_bins: number of bins to bucketize each key group
   
-  bucket_method: binning method, can choose between "greedy", "sub_optimal", and "naive". "greedy" is the binning algorithm explained in the paper. "sub_optimal" is a fast approaximation of "greedy" algorithm. "naive" is only used for ablation study, will not have good performance.
+  bucket_method: binning method, can choose between "greedy", "sub_optimal", and "naive". "greedy" is the binning 
+  algorithm explained in the paper. "sub_optimal" is a fast approaximation of "greedy" algorithm. "naive" is only used 
+  for ablation study, will not have good performance.
 
   
   ### Then, evaluate the learnt model
@@ -102,7 +104,8 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
          --save_folder /home/ubuntu/data_CE/stats_CEB/
   ```
   
-  In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect the postgres cache and make fair comparisons among all methods.
+  In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect the 
+  postgres cache and make fair comparisons among all methods.
   
   ### Model Update
   Run the following command to train a FactorJoin on data before 2014 and incrementally update the model with data after 2014:
@@ -118,3 +121,60 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   ```
   Afterwards, an updated model should be saved under --model_path, and you can follow the previous instruction to evaluate its end-to-end performance.
   
+## Reproducing result on IMDB-JOB
+
+As discussed in the paper, since IMDB-JOB contains complicated cyclic joins and complex predicates (disjunction, LIKE), 
+no existing learned cardinality estimators can handle it. FactorJoin also needs to make certain qualifications to 
+support it, including using sampling for base-table estimates.
+
+### First run the following command to train the models
+  ```
+  python run_experiment.py --dataset imdb
+         --generate_models
+         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/imdb/{}.csv
+         --model_path /home/ubuntu/data_CE/CE_scheme_models/
+         --n_dim_dist 1
+         --bucket_method fixed_start_key
+  ```
+  data_path: the stats dataset you just downloaded
+
+  model_path: the location to save the model
+
+  n_dim_dist: the dimension of distributions (section 5.1 of the paper), i.e. the tree-width of the 
+              Bayesian factorization. We currently only support 1 for IMDB because it contains too many string columns
+              and to the best of our knowledge there does not exist any work to capture the correlation between two string
+              attributes (cannot discretize because of LIKE). We are exploring novel algorithm using n_dim_dist=2 in 
+              optimization branch.
+  
+  bucket_method: binning method ["greedy", "fixed_start_key", "sub_optimal", and "naive"]. "fixed_start_key" is a fast
+  approximation of GBSA and is recommended for IMDB-JOB workload because "greedy" is too slow.
+
+### Then, evaluate the learnt model
+  ```
+  python run_experiment.py --dataset stats
+         --evaluate
+         --model_path /home/ubuntu/data_CE/CE_scheme_models/model_stats_greedy_200.pkl
+         --query_file_location /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql
+         --save_folder /home/ubuntu/data_CE/CE_scheme_models/
+  ```
+  model_path: the location for the saved model
+  
+  query_file_location: the sql file containing the queries
+  
+  save_folder: where to save the prediction
+
+## Citation
+
+This paper is accepted by SIGMOD 2023. Please cite our arXiv version first before the paper appears in SIGMOD.
+
+```
+@inproceedings{factorjoin,
+title = {{FactorJoin: A New Cardinality Estimation Framework for Join Queries}},
+author={Ziniu Wu and  Parimarjan Negi and  Mohammad Alizadeh and Tim Kraska and Samuel Madden},
+journal={arXiv preprint arXiv:2212.05526},
+year = {2023},
+note = {To Appear},
+booktitle = {SIGMOD 2023}
+}
+```
+    

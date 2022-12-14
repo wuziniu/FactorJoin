@@ -141,6 +141,41 @@ def get_join_hyper_graph(join_keys, equivalent_keys):
     return equivalent_group
 
 
+def get_equivalent_key_group(join_keys, equivalent_keys):
+    equivalent_group = dict()
+    table_equivalent_group = dict()
+    table_key_equivalent_group = dict()
+    table_key_group_map = dict()
+    for table in join_keys:
+        for key in join_keys[table]:
+            seen = False
+            for indicator in equivalent_keys:
+                if key in equivalent_keys[indicator]:
+                    if seen:
+                        assert False, f"{key} appears in multiple equivalent groups."
+                    if indicator not in equivalent_group:
+                        equivalent_group[indicator] = [key]
+                    else:
+                        equivalent_group[indicator].append(key)
+                    if table not in table_key_equivalent_group:
+                        table_key_equivalent_group[table] = dict()
+                        table_equivalent_group[table] = set([indicator])
+                        table_key_group_map[table] = dict()
+                        table_key_group_map[table][key] = indicator
+                    else:
+                        table_equivalent_group[table].add(indicator)
+                        table_key_group_map[table][key] = indicator
+                    if indicator not in table_key_equivalent_group[table]:
+                        table_key_equivalent_group[table][indicator] = [key]
+                    else:
+                        table_key_equivalent_group[table][indicator].append(key)
+
+                    seen = True
+            if not seen:
+                assert False, f"no equivalent groups found for {key}."
+    return equivalent_group, table_equivalent_group, table_key_equivalent_group, table_key_group_map
+
+
 def process_condition_join(cond, tables_all):
     start = None
     join = False

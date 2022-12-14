@@ -97,6 +97,7 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
             'link_type.id': 50
         }
     elif type(bin_size) == int:
+        # need to provide a workload file to automatically generate number of bins
         n_bins = get_n_bins_from_query(bin_size, data_path, query_workload_file)
     else:
         assert type(bin_size) == dict, "bin_size must of type int or dictionary mapping id attributes to int"

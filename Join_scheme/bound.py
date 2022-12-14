@@ -1,7 +1,8 @@
 import numpy as np
 import copy
 
-from Join_scheme.join_graph import process_condition, get_join_hyper_graph, parse_query_all_join
+from Join_scheme.join_graph import process_condition, get_join_hyper_graph, parse_query_all_join, \
+    get_equivalent_key_group
 from Join_scheme.data_prepare import identify_key_values
 from BayesCard.Evaluation.cardinality_estimation import timestamp_transorform, construct_table_query
 from Sampling.load_sample import load_sample_imdb_one_query
@@ -359,10 +360,13 @@ class Bound_ensemble:
         :param query_str: the target query
         :param sub_plan_query_str_all: all sub_plan_queries of the target query,
                it should be sorted by number of the tables in the sub_plan_query
+        :param query_name: name of the query
+        :param debug: enable printing
+        :param true_card: true cardinality of all queries, this is for debug purpose only.
         """
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group, table_equivalent_group, table_key_equivalent_group, table_key_group_map = \
-            get_join_hyper_graph(join_keys, self.equivalent_keys)
+            get_equivalent_key_group(join_keys, self.equivalent_keys)
         if self.bns is not None:
             conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys, equivalent_group)
         else:

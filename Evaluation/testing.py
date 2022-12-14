@@ -79,7 +79,7 @@ def get_job_sub_plan_queires(query_folder):
 	return all_queries, all_sub_plan_queries_str
 
 
-def test_on_imdb(model_path, query_file, query_sub_plan_file, SPERCENTAGE=None, query_sample_location=None,
+def test_on_imdb(model_path, query_folder, SPERCENTAGE=None, query_sample_location=None,
 				 save_res=None):
 	"""
 	Evaluate the trained FactorJoin model on the IMDB-JOB workload.
@@ -96,10 +96,7 @@ def test_on_imdb(model_path, query_file, query_sub_plan_file, SPERCENTAGE=None, 
 	if query_sample_location:
 		bound_ensemble.query_sample_location = query_sample_location
 
-	with open(query_file, "rb") as f:
-		all_queries = pickle.load(f)
-	with open(query_sub_plan_file, "rb") as f:
-		all_sub_plan_queries_str = pickle.load(f)
+	all_queries, all_sub_plan_queries_str = get_job_sub_plan_queires(query_folder)
 
 	res = dict()
 	t = time.time()
