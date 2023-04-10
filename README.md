@@ -78,5 +78,5 @@ The optimal trained models for each dataset are already stored. If you are only 
          --save_folder job_queries/results/
   ```
   
-  In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect of the postgres cache and make fair comparisons among all methods.
+  In order to reproduce the results, make sure to excute the query multiple time first to warm up postgres cache and make fair comparisons among all methods.
   
