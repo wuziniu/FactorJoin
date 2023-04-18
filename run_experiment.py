@@ -86,7 +86,7 @@ if __name__ == '__main__':
     elif args.dataset == 'imdb':
         if args.generate_models:
             start_time = time.time()
-            train_one_imdb(args.data_path, args.model_path, args.n_bins, args.bucket_method,
+            train_one_imdb(args.data_path, args.model_path, args.n_dim_dist, args.n_bins, args.bucket_method,
                            args.external_workload_file, args.save_bucket_bins, args.seed)
             end_time = time.time()
             print(f"Training completed: total training time is {end_time - start_time}")
