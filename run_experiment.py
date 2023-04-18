@@ -57,5 +57,11 @@ if __name__ == '__main__':
             test_on_imdb(args.model_path, args.query_file, args.query_sub_plan_file, args.SPERCENTAGE,
                          args.query_sample_location, args.save_folder)
 
+<<<<<<< Updated upstream
+=======
+        elif args.update_evaluate:
+            print(args.split_date)
+            eval_update(args.data_path, args.model_path, args.n_bins, args.bucket_method, args.split_date)
+>>>>>>> Stashed changes
 
 
