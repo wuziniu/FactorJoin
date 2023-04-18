@@ -68,6 +68,7 @@ def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, 
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
 
+
 def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_method="fixed_start_key",
                    query_workload_file=None, save_bucket_bins=False, seed=0):
     """

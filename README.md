@@ -35,14 +35,10 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
    https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark/tree/master/workloads
 
 2. IMDB dataset:
-   
-   To evaluate our model on IMDB dataset, please checkout branch imdb:
-   
-   ```
-   git checkout imdb
-   ```
     
    The imdb dataset can be downloaded here: http://homepages.cwi.nl/~boncz/job/imdb.tgz
+
+    
    
 ## Reproducing result on STATS-CEB:
 
@@ -124,7 +120,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
 ## Reproducing result on IMDB-JOB
 
 As discussed in the paper, since IMDB-JOB contains complicated cyclic joins and complex predicates (disjunction, LIKE), 
-no existing learned cardinality estimators can handle it. FactorJoin also needs to make certain qualifications to 
+most existing learned cardinality estimators can handle it. FactorJoin also needs to make certain qualifications to 
 support it, including using sampling for base-table estimates.
 
 ### First run the following command to train the models

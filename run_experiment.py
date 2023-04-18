@@ -25,7 +25,7 @@ if __name__ == '__main__':
                         default='/home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv')
     parser.add_argument('--model_path', default='/home/ubuntu/data_CE/CE_scheme_models/')
     parser.add_argument('--n_dim_dist', type=int, default=2, help="The dimension of the distributions")
-    parser.add_argument('--n_bins', type=int, default=200, help="The bin size on the id attributes")
+    parser.add_argument('--n_bins', type=int, default=None, help="The bin size on the id attributes")
     parser.add_argument('--bucket_method', type=str, default="greedy", help="The bin size on the id attributes")
     parser.add_argument('--external_workload_file', type=str, default=None, help="A query workload to decide n_bins")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
