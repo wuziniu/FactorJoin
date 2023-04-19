@@ -473,7 +473,8 @@ def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_value
     return all_factors
 
 
-def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_size=1000000, save_bucket_bins=False):
+def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_size=1000000, save_bucket_bins=False,
+                      seed=0):
     schema = gen_imdb_schema(data_path)
     all_keys, equivalent_keys = identify_key_values(schema)
     data = dict()
@@ -509,7 +510,7 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
     sample_rate = dict()
     sampled_data = dict()
     for k in data:
-        temp = make_sample(data[k], sample_size)
+        temp = make_sample(data[k], sample_size, seed)
         sampled_data[k] = temp[0]
         sample_rate[k] = temp[1]
 
@@ -564,7 +565,7 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
                                                                 model_folder)
 
     if save_bucket_bins:
-        with open(model_folder + f"/imdb_buckets.pkl") as f:
+        with open(model_folder + f"/imdb_buckets.pkl", "wb") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
 
     return schema, table_buckets, ground_truth_factors_no_filter

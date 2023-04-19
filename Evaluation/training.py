@@ -107,7 +107,7 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
     if not os.path.exists(model_folder):
         os.mkdir(model_folder)
     schema, table_buckets, ground_truth_factors_no_filter = process_imdb_data(data_path, model_folder, n_bins,
-                                                                              bucket_method, save_bucket_bins)
+                                                                              bucket_method, save_bucket_bins, seed)
     be = Bound_ensemble(table_buckets, schema, n_dim_dist, ground_truth_factors_no_filter)
     if bin_size is None:
         bin_size = "default"
