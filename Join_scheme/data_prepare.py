@@ -479,7 +479,7 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
     all_keys, equivalent_keys = identify_key_values(schema)
     data = dict()
     table_lens = dict()
-    table_key_lens = dict()
+    table_key_count_var = dict()
     na_values = dict()
     primary_keys = []
     for table_obj in schema.tables:
@@ -497,7 +497,6 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
             na_values[table_obj.table_name] = dict()
         for attr in df_rows.columns:
             if attr in all_keys:
-                table_key_lens[attr] = table_lens[table_obj.table_name]
                 data[attr] = df_rows[attr].values
                 data[attr][np.isnan(data[attr])] = -1
                 data[attr][data[attr] < 0] = -1
@@ -506,6 +505,8 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
                 data[attr] = copy.deepcopy(data[attr])[data[attr] >= 0]
                 if len(np.unique(data[attr])) >= len(data[attr]) - 10:
                     primary_keys.append(attr)
+                attr_value_count = np.unique(data[attr], return_counts=True)[-1]
+                table_key_count_var[attr] = np.var(attr_value_count)
 
     sample_rate = dict()
     sampled_data = dict()
@@ -535,7 +536,7 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
         elif bucket_method == "naive":
             optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, False)
         elif bucket_method == "fixed_start_key":
-            start_key = get_start_key(list(group_data.keys()), table_key_lens, primary_keys)
+            start_key = get_start_key(list(group_data.keys()), table_key_count_var, primary_keys)
             print(start_key)
             optimal_bucket = fixed_start_key_bucketize(start_key, group_data, group_sample_rate, n_bins=n_bins[PK],
                                                       primary_keys=primary_keys, return_data=False)

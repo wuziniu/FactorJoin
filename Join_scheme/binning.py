@@ -117,12 +117,12 @@ class Bucket_group:
             res[np.isin(data, b)] = i
             remaining_data = np.setdiff1d(remaining_data, b)
         res[np.isin(data, remaining_data)] = -1
-        #if len(remaining_data) != 0:
-         #   self.bins.append(list(remaining_data))
-          #  for key in self.buckets:
-           #     if key not in self.primary_keys:
-            #        self.buckets[key].bin_modes = np.append(self.buckets[key].bin_modes, 0)
-        #res[np.isin(data, remaining_data)] = len(self.bins)
+        if len(remaining_data) != 0:
+            self.bins.append(list(remaining_data))
+            for key in self.buckets:
+                if key not in self.primary_keys:
+                    self.buckets[key].bin_modes = np.append(self.buckets[key].bin_modes, 0)
+        res[np.isin(data, remaining_data)] = len(self.bins)
         return res
 
 
