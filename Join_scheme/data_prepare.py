@@ -477,6 +477,7 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
                       seed=0):
     schema = gen_imdb_schema(data_path)
     all_keys, equivalent_keys = identify_key_values(schema)
+
     data = dict()
     table_lens = dict()
     table_key_count_var = dict()
@@ -566,8 +567,10 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
                                                                 model_folder)
 
     if save_bucket_bins:
-        with open(model_folder + f"/imdb_buckets.pkl", "wb") as f:
+        with open(os.path.join(model_folder, "imdb_buckets.pkl"), "wb") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
+        with open(os.path.join(model_folder, "equivalent_keys.pkl"), "wb") as f:
+            pickle.dump(equivalent_keys, f, pickle.HIGHEST_PROTOCOL)
 
     return schema, table_buckets, ground_truth_factors_no_filter
 

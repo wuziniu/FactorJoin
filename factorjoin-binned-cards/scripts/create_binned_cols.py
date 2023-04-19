@@ -38,6 +38,8 @@ def read_flags():
             default=5433)
     parser.add_argument("--bin_dir", type=str, required=False,
                         default="bins.pkl")
+    parser.add_argument("--equivalent_keys_dir", type=str, required=False,
+                        default="equivalent_keys.pkl")
 
     parser.add_argument("--sampling_percentage", type=float, required=False,
             default=1.0)
@@ -61,7 +63,7 @@ def main():
             curvals.append([str(int(v2)) for v2 in v])
         bins[k] = curvals
 
-    with open("equivalent_keys.pkl", "rb") as f:
+    with open(args.equivalent_keys_dir, "rb") as f:
         equivalent_keys = pickle.load(f)
 
     sampling_frac = float(args.sampling_percentage) / 100.00

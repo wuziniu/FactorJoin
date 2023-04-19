@@ -131,6 +131,7 @@ support it, including using sampling for base-table estimates.
          --model_path /home/ubuntu/data_CE/CE_scheme_models/
          --n_dim_dist 1
          --bucket_method fixed_start_key
+         
   ```
   data_path: the stats dataset you just downloaded
 

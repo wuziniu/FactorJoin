@@ -55,6 +55,8 @@ def read_flags():
             default=5433)
     parser.add_argument("--bin_dir", type=str, required=False,
                         default="bins.pkl")
+    parser.add_argument("--equivalent_keys_dir", type=str, required=False,
+                        default="equivalent_keys.pkl")
 
     parser.add_argument("--query_dir", type=str, required=False,
             default=None)
@@ -123,16 +125,13 @@ def get_binned_sqls(qrep, card_type, key_name, db_host, db_name, user, pwd,
     updates qrep's fields with the needed cardinality estimates, and returns
     the qrep.
     '''
-    with open(args.bin_dir, "rb") as f:
-        bins = pickle.load(f)
-
-    with open("equivalent_keys.pkl", "rb") as f:
+    with open(args.equivalent_keys_dir, "rb") as f:
         equivalent_keys = pickle.load(f)
 
     table_cols = {}
     binids = {}
 
-    for t,cols in equivalent_keys.items():
+    for t, cols in equivalent_keys.items():
         for col in cols:
             tname = col[0:col.find(".")]
             colname = col[col.find(".")+1:]
