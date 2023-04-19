@@ -10,6 +10,8 @@ collections.MutableMapping = collections.abc.MutableMapping
 
 import argparse
 import psycopg2 as pg
+import networkx as nx
+import time
 # from db_utils.utils import *
 from utils.utils import *
 from db_utils.query_storage import *
@@ -51,6 +53,8 @@ def read_flags():
             default="")
     parser.add_argument("--port", type=str, required=False,
             default=5433)
+    parser.add_argument("--bin_dir", type=str, required=False,
+                        default="bins.pkl")
 
     parser.add_argument("--query_dir", type=str, required=False,
             default=None)
@@ -119,7 +123,7 @@ def get_binned_sqls(qrep, card_type, key_name, db_host, db_name, user, pwd,
     updates qrep's fields with the needed cardinality estimates, and returns
     the qrep.
     '''
-    with open("bins.pkl", "rb") as f:
+    with open(args.bin_dir, "rb") as f:
         bins = pickle.load(f)
 
     with open("equivalent_keys.pkl", "rb") as f:

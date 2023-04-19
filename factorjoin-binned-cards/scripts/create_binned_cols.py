@@ -51,7 +51,7 @@ def main():
             password=args.pwd, database=args.db_name)
     cursor = con.cursor()
 
-    with open("bins.pkl", "rb") as f:
+    with open(args.bin_dir, "rb") as f:
         bins = pickle.load(f)
 
     for k in bins:
