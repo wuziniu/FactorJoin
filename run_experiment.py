@@ -29,6 +29,15 @@ if __name__ == '__main__':
     parser.add_argument('--bucket_method', type=str, default="greedy", help="The bin size on the id attributes")
     parser.add_argument('--external_workload_file', type=str, default=None, help="A query workload to decide n_bins")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
+    parser.add_argument('--db_conn_kwargs', type=str,
+                        default="dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5436",
+                        help="Postgres dsn connection string")
+    parser.add_argument('--sampling_percentage', type=float,
+                        default=1.0,
+                        help="Sample rate in percentage")
+    parser.add_argument('--sampling_type', type=str,
+                        default='ss',
+                        help="Type of sampling to use")
     parser.add_argument('--seed', type=int, default=0, help="random seed")
 
     # evaluation
@@ -87,7 +96,8 @@ if __name__ == '__main__':
         if args.generate_models:
             start_time = time.time()
             train_one_imdb(args.data_path, args.model_path, args.n_dim_dist, args.n_bins, args.bucket_method,
-                           args.external_workload_file, args.save_bucket_bins, args.seed)
+                           args.external_workload_file, args.save_bucket_bins, args.seed, args.db_conn_kwargs,
+                           args.sampling_percentage, args.sampling_type)
             end_time = time.time()
             print(f"Training completed: total training time is {end_time - start_time}")
 

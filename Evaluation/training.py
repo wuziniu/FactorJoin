@@ -6,7 +6,7 @@ from Join_scheme.bound import Bound_ensemble
 from Join_scheme.tools import get_n_bins_from_query
 from BayesCard.Models.Bayescard_BN import Bayescard_BN
 from BayesCard.Evaluation.cardinality_estimation import parse_query_single_table
-
+from Sampling.create_binned_cols import create_binned_cols
 
 
 def test_trained_BN_on_stats(bn, t_name):
@@ -70,7 +70,8 @@ def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, 
 
 
 def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_method="fixed_start_key",
-                   query_workload_file=None, save_bucket_bins=False, seed=0):
+                   query_workload_file=None, save_bucket_bins=False, seed=0, db_conn_kwargs=None,
+                   sampling_percentage=1.0, sampling_type='ss'):
     """
     Training one FactorJoin model on IMDB dataset.
     :param data_path: The path to IMDB dataset
@@ -106,8 +107,8 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
 
     if not os.path.exists(model_folder):
         os.mkdir(model_folder)
-    schema, table_buckets, ground_truth_factors_no_filter = process_imdb_data(data_path, model_folder, n_bins,
-                                                                              bucket_method, save_bucket_bins, seed)
+    schema, table_buckets, ground_truth_factors_no_filter, bins, equivalent_keys = process_imdb_data(data_path,
+                                                        model_folder, n_bins, bucket_method, save_bucket_bins, seed)
     be = Bound_ensemble(table_buckets, schema, n_dim_dist, ground_truth_factors_no_filter)
     if bin_size is None:
         bin_size = "default"
@@ -116,5 +117,8 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
     model_path = model_folder + f"model_imdb_{bin_size}.pkl"
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
+    # create new columns for sampling purposes
+    create_binned_cols(db_conn_kwargs, bins, equivalent_keys, sampling_percentage, sampling_type)
+
 
 

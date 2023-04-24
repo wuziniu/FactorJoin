@@ -2,25 +2,7 @@ import pickle
 import numpy as np
 import os
 from Join_scheme.binning import apply_binning_to_data_value_count
-
-
-class Factor:
-    """
-    This the class defines a multidimensional conditional probability.
-    """
-    def __init__(self, table, table_len, variables, pdfs, equivalent_variables=[], na_values=None):
-        self.table = table
-        self.table_len = table_len
-        self.variables = variables
-        self.equivalent_variables = equivalent_variables
-        self.pdfs = pdfs
-        self.cardinalities = dict()
-        for i, var in enumerate(self.variables):
-            self.cardinalities[var] = pdfs.shape[i]
-            if len(equivalent_variables) != 0:
-                self.cardinalities[equivalent_variables[i]] = pdfs.shape[i]
-        self.na_values = na_values  # the percentage of data, which is not nan, so the variable name is misleading.
-
+from Join_scheme.factor import Factor
 
 
 def load_sample_imdb(table_buckets, tables_alias, query_file_orders, join_keys, table_key_equivalent_group,

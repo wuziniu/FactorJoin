@@ -572,6 +572,6 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
         with open(os.path.join(model_folder, "equivalent_keys.pkl"), "wb") as f:
             pickle.dump(equivalent_keys, f, pickle.HIGHEST_PROTOCOL)
 
-    return schema, table_buckets, ground_truth_factors_no_filter
+    return schema, table_buckets, ground_truth_factors_no_filter, optimal_buckets, equivalent_keys
 
 
