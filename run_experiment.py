@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--sampling_type', type=str,
                         default='ss',
                         help="Type of sampling to use")
-    parser.add_argument('--materialize_sample', type=str,
+    parser.add_argument('--materialize_sample',
                         action='store_true',
                         help='create a materialized sample for the testing queries?')
     parser.add_argument('--seed', type=int, default=0, help="random seed")
