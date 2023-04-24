@@ -1,5 +1,4 @@
 import psycopg2 as pg
-import pdb
 
 
 SEL_TEMPLATE = "SELECT {COLS} FROM {TABLE} WHERE random() < {FRAC}"
@@ -87,4 +86,3 @@ def create_binned_cols(db_conn_kwargs, bins, equivalent_keys, sampling_percentag
                 print("updating bin: ", bi)
                 cursor.execute(updatesql)
                 con.commit()
-    pdb.set_trace()

@@ -4,9 +4,10 @@
   The supplement material of our SIGMOD submission can be found under the home directory "sigmod_supplementary.pdf".
 
 ## Environment setup
-  The following command using conda should setup the environment in linux CentOS.
   ```
-  conda env create -f environment.yml
+  conda create -n factorjoin python=3.7
+  conda activate factorjoin
+  pip install -r requirements.txt
   ```
   If not, you need to manually download the following packages
   Required dependence: numpy, scipy, pandas, Pgmpy, pomegranate, networkx, tqdm, joblib, pytorch, psycopg2, scikit-learn, numba 
@@ -127,7 +128,7 @@ support it, including using sampling for base-table estimates.
   ```
   python run_experiment.py --dataset imdb
          --generate_models
-         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/imdb/{}.csv
+         --data_path /home/ubuntu/data_CE/imdb/{}.csv
          --model_path /home/ubuntu/data_CE/CE_scheme_models/
          --n_dim_dist 1
          --bucket_method fixed_start_key
@@ -162,16 +163,14 @@ support it, including using sampling for base-table estimates.
 
 ## Citation
 
-This paper is accepted by SIGMOD 2023. Please cite our arXiv version first before the paper appears in SIGMOD.
+This paper is accepted by SIGMOD 2023 (PACMMOD).
 
 ```
 @inproceedings{factorjoin,
 title = {{FactorJoin: A New Cardinality Estimation Framework for Join Queries}},
-author={Ziniu Wu and  Parimarjan Negi and  Mohammad Alizadeh and Tim Kraska and Samuel Madden},
-journal={arXiv preprint arXiv:2212.05526},
+author={Ziniu Wu and Parimarjan Negi and  Mohammad Alizadeh and Tim Kraska and Samuel Madden},
+journal={PACMMOD},
 year = {2023},
-note = {To Appear},
-booktitle = {SIGMOD 2023}
 }
 ```
     
