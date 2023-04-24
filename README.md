@@ -9,8 +9,9 @@
   conda activate factorjoin
   pip install -r requirements.txt
   ```
-  If not, you need to manually download the following packages
-  Required dependence: numpy, scipy, pandas, Pgmpy, pomegranate, networkx, tqdm, joblib, pytorch, psycopg2, scikit-learn, numba 
+
+  For end-to-end evaluation, please set up the docker container for hacked Postgres: 
+  https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark
   
   
 ## Dataset download:
@@ -36,9 +37,8 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
    https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark/tree/master/workloads
 
 2. IMDB dataset:
-    
    The imdb dataset can be downloaded here: http://homepages.cwi.nl/~boncz/job/imdb.tgz
-
+   The JOB query workload can be downloaded from: https://db.in.tum.de/~leis/qo/job.tgz
     
    
 ## Reproducing result on STATS-CEB:
@@ -50,7 +50,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   python run_experiment.py --dataset stats
          --generate_models
          --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv
-         --model_path /home/ubuntu/data_CE/CE_scheme_models/
+         --model_path checkpoints/
          --n_dim_dist 2
          --n_bins 200
          --bucket_method greedy
@@ -73,9 +73,9 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   ```
   python run_experiment.py --dataset stats
          --evaluate
-         --model_path /home/ubuntu/data_CE/CE_scheme_models/model_stats_greedy_200.pkl
+         --model_path checkpoints/model_stats_greedy_200.pkl
          --query_file_location /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql
-         --save_folder /home/ubuntu/data_CE/CE_scheme_models/
+         --save_folder checkpoints/
   ```
   model_path: the location for the saved model
   
@@ -88,7 +88,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   Then run the following command to send the estimated results into docker container
   ```
-  sudo docker cp /home/ubuntu/data_CE/CE_scheme_models/[method].txt ce-benchmark:/var/lib/pgsql/13.1/data/[method].txt
+  sudo docker cp checkpoints/[method].txt ce-benchmark:/var/lib/pgsql/13.1/data/[method].txt
   ```
   
   /home/ubuntu/data_CE/CE_scheme_models/[method].txt is the location of the saved cardinality predictions
@@ -101,8 +101,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
          --save_folder /home/ubuntu/data_CE/stats_CEB/
   ```
   
-  In order to reproduce the results, make sure to excute the query multiple time first to rule out the effect the 
-  postgres cache and make fair comparisons among all methods.
+  In order to reproduce the results, make sure to execute the query multiple time first to warm up postgres and make fair comparisons among all methods.
   
   ### Model Update
   Run the following command to train a FactorJoin on data before 2014 and incrementally update the model with data after 2014:
@@ -110,7 +109,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   python run_experiment.py --dataset stats
          --update_evaluate
          --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified
-         --model_path /home/ubuntu/data_CE/CE_scheme_models/update/
+         --model_path checkpoints/update/
          --n_dim_dist 2
          --n_bins 200
          --bucket_method sub_optimal

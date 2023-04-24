@@ -99,15 +99,15 @@ def exec_sql(sql, db_conn_kwargs):
     return res, exec_time
 
 
-def get_query_binned_cards(query_dir, db_conn_kwargs, equivalent_keys, sampling_percentage):
+def get_query_binned_cards(query_dir, db_conn_kwargs, equivalent_keys, sampling_percentage, save_dir="checkpoints/"):
     files = list(glob.glob(query_dir + "/*"))
     files.sort()
 
     for i, file in enumerate(files):
-        if file.endswith(".sql"):
+        if file.endswith(".sql") and file != "schema.sql" and file != "fkindexes.sql":
             with open(file, "r") as f:
                 sql = f.read()
-
+            query_name = file.split("/")[-1].split(".sql")[0]
             alltabs, allcols, allsqls = get_binned_sqls(sql, equivalent_keys, sampling_percentage)
 
             par_args = []
@@ -120,11 +120,9 @@ def get_query_binned_cards(query_dir, db_conn_kwargs, equivalent_keys, sampling_
             times = [r[1] for r in res]
             print(max(times), min(times))
 
-            binfn = file.replace("queries", "./binned_cards/" +
-                    str(sampling_percentage) + "/")
-            print(binfn)
-            newdir = os.path.dirname(binfn)
-            os.makedirs(newdir, exist_ok=True)
+            new_dir = os.path.join(save_dir, f"binned_cards_{sampling_percentage}")
+            new_file = os.path.join(new_dir, f"{query_name}.pkl")
+            os.makedirs(new_dir, exist_ok=True)
 
             data = {}
             data["all_aliases"] = alltabs
@@ -132,5 +130,5 @@ def get_query_binned_cards(query_dir, db_conn_kwargs, equivalent_keys, sampling_
             data["all_sqls"] = allsqls
             data["results"] = res
 
-            with open(binfn, "wb") as f:
+            with open(new_file, "wb") as f:
                 pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)

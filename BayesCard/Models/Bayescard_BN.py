@@ -5,7 +5,6 @@ import copy
 from BayesCard.Models.BN_single_model import BN_Single
 from Pgmpy.factors.discrete.CPD import TabularCPD
 from Pgmpy.models import BayesianModel
-from Pgmpy.inference import VariableEliminationJIT
 logger = logging.getLogger(__name__)
 
 

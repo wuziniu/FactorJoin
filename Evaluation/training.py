@@ -65,7 +65,7 @@ def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, 
 
     if not os.path.exists(model_folder):
         os.mkdir(model_folder)
-    model_path = model_folder + f"model_{dataset}_{bucket_method}_{n_bins}.pkl"
+    model_path = os.path.join(model_folder, f"model_{dataset}_{bucket_method}_{n_bins}.pkl")
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
 
@@ -115,12 +115,12 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
         bin_size = "default"
     elif type(bin_size) == dict:
         bin_size = "costumized"
-    model_path = model_folder + f"model_imdb_{bin_size}.pkl"
+    model_path = os.path.join(model_folder, f"model_imdb_{bin_size}.pkl")
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
     # create new tables for sampling purposes
     create_binned_cols(db_conn_kwargs, bins, equivalent_keys, sampling_percentage, sampling_type)
     if materialize_sample and test_query_file is not None:
-        get_query_binned_cards(test_query_file, db_conn_kwargs, equivalent_keys, sampling_percentage)
+        get_query_binned_cards(test_query_file, db_conn_kwargs, equivalent_keys, sampling_percentage, model_folder)
 
 

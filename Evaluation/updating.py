@@ -2,8 +2,6 @@ import numpy as np
 import pickle
 import time
 import os
-import sys
-sys.path.append("/home/ubuntu/CE_scheme")
 from Schemas.stats.schema import gen_stats_light_schema
 from Evaluation.training import train_one_stats, test_trained_BN_on_stats
 from Join_scheme.data_prepare import read_table_csv, update_stats_data
@@ -68,7 +66,7 @@ def update_one_stats(FJmodel, buckets, table_buckets, data_path, save_model_fold
                     bn.null_values = null_values[t_name]
                     bn.update_from_data(data)
 
-    model_path = save_model_folder + f"update_model.pkl"
+    model_path = os.path.join(save_model_folder, f"update_model.pkl")
     pickle.dump(FJmodel, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
 
@@ -79,6 +77,8 @@ def update_one_imdb():
 
 def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, split_date="2014-01-01 00:00:00", seed=0):
     np.random.seed(seed)
+    if not os.path.exists(model_path):
+        os.mkdir(model_path)
     before_data, after_data = get_data_by_date(data_folder, split_date)
     print("************************************************************")
     print(f"Training the model with data before {split_date}")
@@ -86,10 +86,10 @@ def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, sp
     train_one_stats("stats", data_folder, model_path, n_dim_dist, bin_size, bucket_method, True, actual_data=before_data)
     print(f"training completed, took {time.time() - start_time} sec")
 
-    #loading the trained model and buckets
-    with open(model_path + "buckets.pkl", "rb") as f:
+    # loading the trained model and buckets
+    with open(os.path.join(model_path, "buckets.pkl"), "rb") as f:
         buckets = pickle.load(f)
-    with open(model_path + f"model_stats_{bucket_method}_{bin_size}.pkl", "rb") as f:
+    with open(os.path.join(model_path, f"model_stats_{bucket_method}_{bin_size}.pkl"), "rb") as f:
         FJmodel = pickle.load(f)
     print("************************************************************")
     print(f"Updating the model with data after {split_date}")
@@ -104,9 +104,8 @@ def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, sp
             bn = FJmodel.bns[t_name]
             bn.null_values = null_values[t_name]
             bn.update_from_data(data[t_name])
-            #test_trained_BN_on_stats(bn, t_name)
     print(f"updating completed, took {time.time() - start_time} sec")
-    model_path = model_path + f"updated_model_stats_{bucket_method}_{bin_size}.pkl"
+    model_path = os.path.join(model_path, f"updated_model_stats_{bucket_method}_{bin_size}.pkl")
     pickle.dump(FJmodel, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"updated models save at {model_path}")
 

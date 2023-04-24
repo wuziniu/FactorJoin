@@ -6,7 +6,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from BayesCard.Models.tools import categorical_qcut, discretize_series
+from BayesCard.Models.tools import discretize_series
 
 logger = logging.getLogger(__name__)
 
