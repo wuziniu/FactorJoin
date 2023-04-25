@@ -51,6 +51,7 @@ def get_binned_sqls(sql, equivalent_keys, sampling_percentage=1.0):
     allsqls = []
 
     for table in tables:
+        no_filter = False
         table_alias = tables[table]
         if table_alias is None:
             table_alias = table
@@ -79,23 +80,27 @@ def get_binned_sqls(sql, equivalent_keys, sampling_percentage=1.0):
                                  WHERE=where_clause)
 
             if where_clause.strip() == "":
+                no_filter = True
                 gsql = gsql.replace("WHERE", "")
 
             #print(gsql)
             alltabs.append((table_alias, ))
             allcols.append(curcol)
-            allsqls.append(gsql)
+            allsqls.append((gsql, no_filter))
 
     return alltabs, allcols, allsqls
 
 
 def exec_sql(sql, db_conn_kwargs):
     start = time.time()
-    con = pg.connect(db_conn_kwargs)
-    cursor = con.cursor()
-    cursor.execute(sql)
-    res = cursor.fetchall()
-
+    sql, no_filter = sql
+    if no_filter:
+        res = None
+    else:
+        con = pg.connect(db_conn_kwargs)
+        cursor = con.cursor()
+        cursor.execute(sql)
+        res = cursor.fetchall()
     exec_time = time.time()-start
     return res, exec_time
 

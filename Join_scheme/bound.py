@@ -6,6 +6,7 @@ from Join_scheme.join_graph import process_condition, get_join_hyper_graph, pars
 from Join_scheme.data_prepare import identify_key_values
 from BayesCard.Evaluation.cardinality_estimation import timestamp_transorform, construct_table_query
 from Sampling.load_sample import load_sample_imdb_one_query
+from Sampling.sample_on_the_fly import sample_on_the_fly
 from Join_scheme.factor import Factor, Group_Factor
 
 
@@ -14,7 +15,7 @@ class Bound_ensemble:
     This the class where we store all the trained models and perform inference on the bound.
     """
     def __init__(self, table_buckets, schema, n_dim_dist=1, ground_truth_factors_no_filter=None, SPERCENTAGE=None,
-                 query_sample_location=None, bns=None, null_value=None):
+                 query_sample_location=None, bns=None, null_value=None, db_conn_kwargs=None):
         """
         The current implementation is a bit hacky, that some features are hardcoded to the
             STATS-CEB and IMDB-JOB workload.
@@ -43,6 +44,7 @@ class Bound_ensemble:
         self.all_keys, self.equivalent_keys = identify_key_values(schema)
         self.bns = bns
         self.null_value = null_value
+        self.db_conn_kwargs = db_conn_kwargs
 
     def parse_query_simple(self, query):
         """
@@ -98,14 +100,14 @@ class Bound_ensemble:
         return tables_all, table_query, join_cond, join_keys
 
 
-    def get_all_id_conidtional_distribution_sample(self, query_file_name, tables_alias, join_keys):
+    def get_all_id_conidtional_distribution_sample(self, query_str, query_file_name, tables_alias, join_keys):
         if self.query_sample_location is not None:
             return load_sample_imdb_one_query(self.table_buckets, tables_alias, query_file_name, join_keys,
                                               self.ground_truth_factors_no_filter, self.SPERCENTAGE,
                                               self.query_sample_location)
         else:
-            # TODO: sample on the fly
-            return
+            return sample_on_the_fly(query_str, self.table_buckets, tables_alias, self.ground_truth_factors_no_filter,
+                                     self.SPERCENTAGE, self.equivalent_keys, self.db_conn_kwargs)
 
     def get_all_id_conidtional_distribution_bn(self, table_queries, join_keys, equivalent_group):
         res = dict()
@@ -250,7 +252,8 @@ class Bound_ensemble:
         if self.bns is not None:
             conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys, equivalent_group)
         else:
-            conditional_factors = self.get_all_id_conidtional_distribution_sample(query_name, tables_all, join_keys)
+            conditional_factors = self.get_all_id_conidtional_distribution_sample(query_str, query_name, tables_all,
+                                                                                  join_keys)
         optimal_order, tables_involved, relevant_keys = self.get_optimal_elimination_order(equivalent_group, join_keys,
                                                                                            conditional_factors)
         res = None
@@ -329,9 +332,11 @@ class Bound_ensemble:
         equivalent_group, table_equivalent_group, table_key_equivalent_group, table_key_group_map = \
             get_equivalent_key_group(join_keys, self.equivalent_keys)
         if self.bns is not None:
-            conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys, equivalent_group)
+            conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys,
+                                                                              equivalent_group)
         else:
-            conditional_factors = self.get_all_id_conidtional_distribution_sample(query_name, tables_all, join_keys)
+            conditional_factors = self.get_all_id_conidtional_distribution_sample(query_str, query_name, tables_all,
+                                                                                  join_keys)
         # self.reverse_table_alias = {v: k for k, v in tables_all.items()}
         cached_sub_queries = dict()
         cardinality_bounds = []

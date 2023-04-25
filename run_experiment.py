@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--sample_size', type=int,
                         default=1000000,
                         help='Generate a sample of datasets instead of using the full data')
-    parser.add_argument('--prepare_sample', type=float,
+    parser.add_argument('--prepare_sample',
                         action='store_true',
                         help='Create a temp table for sampling purposes')
     parser.add_argument('--sampling_percentage', type=float,

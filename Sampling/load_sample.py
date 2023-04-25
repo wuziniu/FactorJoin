@@ -27,10 +27,12 @@ def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, joi
     table_pdfs = dict()
     filter_size = dict()
     for i, alias in enumerate(data["all_aliases"]):
+        cards = data["results"][i][0]
+        if cards is None:
+            continue
         column = data["all_columns"][i]
         alias = alias[0]
         key = tables_alias[alias] + "." + column
-        cards = data["results"][i][0]
         n_bins = table_buckets[tables_alias[alias]].bin_sizes[key]
         pdfs = np.zeros(n_bins)
         for (j, val) in cards:
@@ -57,7 +59,7 @@ def load_sample_imdb_one_query(table_buckets, tables_alias, query_file_name, joi
             conditional_factors[alias] = Factor(tables_alias[alias], table_len, list(table_pdfs[alias].keys()),
                                                 table_pdfs[alias], na_values=na_values)
         else:
-            #TODO: ground-truth distribution
+            #ground-truth distribution
             conditional_factors[alias] = table_key_equivalent_group[tables_alias[alias]]
     return conditional_factors
 
