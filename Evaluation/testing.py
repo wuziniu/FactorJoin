@@ -95,7 +95,7 @@ def test_on_imdb(model_path, query_folder=None, derived_query_file=None, SPERCEN
 	if query_sample_location:
 		bound_ensemble.query_sample_location = query_sample_location
 
-	if derived_query_file:
+	if not derived_query_file:
 		all_queries, all_sub_plan_queries_str = get_job_sub_plan_queires(query_folder)
 	else:
 		with open(derived_query_file, "rb") as f:
