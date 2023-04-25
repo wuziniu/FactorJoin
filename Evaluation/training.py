@@ -71,7 +71,7 @@ def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, 
 
 
 def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_method="fixed_start_key",
-                   query_workload_file=None, save_bucket_bins=False, seed=0, db_conn_kwargs=None,
+                   sample_size=1000000, query_workload_file=None, save_bucket_bins=False, seed=0, db_conn_kwargs=None,
                    sampling_percentage=1.0, sampling_type='ss', test_query_file=None, materialize_sample=False):
     """
     Training one FactorJoin model on IMDB dataset.
@@ -109,7 +109,7 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
     if not os.path.exists(model_folder):
         os.mkdir(model_folder)
     schema, table_buckets, ground_truth_factors_no_filter, bins, equivalent_keys = process_imdb_data(data_path,
-                                                        model_folder, n_bins, bucket_method, save_bucket_bins, seed)
+                                            model_folder, n_bins, bucket_method, sample_size, save_bucket_bins, seed)
     be = Bound_ensemble(table_buckets, schema, n_dim_dist, ground_truth_factors_no_filter)
     if bin_size is None:
         bin_size = "default"

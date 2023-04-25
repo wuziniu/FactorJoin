@@ -131,7 +131,7 @@ support it, including using sampling for base-table estimates.
          --model_path checkpoints/
          --n_dim_dist 1
          --bucket_method fixed_start_key
-         --db_conn_kwargs dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5436
+         --db_conn_kwargs "dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5436"
   ```
   data_path: the stats dataset you just downloaded
 

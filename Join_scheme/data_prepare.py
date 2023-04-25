@@ -447,8 +447,8 @@ def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_value
     """
     Get the ground-truth data distribution on each single table without filter predicates.
     """
-    if save_path and os.path.exists(save_path + f"/gt_no_filter.pkl"):
-        with open(save_path + f"/gt_no_filter.pkl", "rb") as f:
+    if save_path and os.path.exists(os.path.join(save_path, f"gt_no_filter.pkl")):
+        with open(os.path.join(save_path, f"gt_no_filter.pkl"), "rb") as f:
             all_factors = pickle.load(f)
         return all_factors
 
@@ -467,7 +467,7 @@ def get_ground_truth_no_filter(equivalent_keys, data, bins, table_lens, na_value
         all_factors[table] = Factor(table, table_lens[table], list(all_factor_pdfs[table].keys()),
                                     all_factor_pdfs[table], na_values=na_values[table])
     if save_path:
-        with open(save_path + f"/gt_no_filter.pkl", "wb") as f:
+        with open(os.path.join(save_path, f"gt_no_filter.pkl"), "wb") as f:
             pickle.dump(all_factors, f, pickle.HIGHEST_PROTOCOL)
 
     return all_factors
