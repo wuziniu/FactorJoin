@@ -53,12 +53,15 @@ if __name__ == '__main__':
     parser.add_argument('--evaluate', help='Evaluates models to compute cardinality bound', action='store_true')
     parser.add_argument('--model_location', nargs='+',
                         default='/home/ubuntu/data_CE/CE_scheme_models/model_stats_greedy_200.pkl')
-    parser.add_argument('--query_file_location',
+    parser.add_argument('--query_file_location', type=str,
                         default=None,
                         help='Location to the test queries')
-    parser.add_argument('--derived_query_file',
+    parser.add_argument('--derived_query_file', type=str,
                         default=None,
                         help='Location to the queries and its sub-plan queries')
+    parser.add_argument('--query_sample_location', type=str,
+                        default=None,
+                        help='Location to the pre-materialized sample')
     parser.add_argument('--save_folder',
                         default='/home/ubuntu/data_CE/CE_scheme_models/')
 

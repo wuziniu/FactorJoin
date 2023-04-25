@@ -160,11 +160,12 @@ https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-su
 
 ### Then, evaluate the learnt model
   ```
-  python run_experiment.py --dataset stats
+  python run_experiment.py --dataset imdb
          --evaluate
-         --model_path /home/ubuntu/data_CE/CE_scheme_models/model_stats_greedy_200.pkl
+         --model_path checkpoints/model_imdb_default.pkl
          --derived_query_file checkpoints/derived_query_file.pkl
          --save_folder checkpoints/
+         --query_sample_location checkpoints/binned_cards_{}/
   ```
   model_path: the location for the saved model
   
