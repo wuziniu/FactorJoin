@@ -119,7 +119,9 @@ if __name__ == '__main__':
             print(f"Training completed: total training time is {end_time - start_time}")
 
         elif args.evaluate:
+            save_file = os.path.join(args.save_folder, "imdb_JOB_sub_queries_" +
+                                     args.model_path.split("/")[-1].split(".pkl")[0] + ".txt")
             test_on_imdb(args.model_path, args.query_file_location, args.derived_query_file, args.sampling_percentage,
-                         args.query_sample_location, args.save_folder)
+                         args.query_sample_location, save_file)
             
 
