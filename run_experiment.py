@@ -119,7 +119,7 @@ if __name__ == '__main__':
             print(f"Training completed: total training time is {end_time - start_time}")
 
         elif args.evaluate:
-            test_on_imdb(args.model_path, args.query_file_location, args.derived_query_file, args.SPERCENTAGE,
+            test_on_imdb(args.model_path, args.query_file_location, args.derived_query_file, args.sampling_percentage,
                          args.query_sample_location, args.save_folder)
             
 
