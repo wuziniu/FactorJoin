@@ -51,8 +51,10 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', default='stats', help='Which dataset to be used')
     parser.add_argument('--method_name', default='stats_CEB_sub_queries_model_stats_greedy_50.txt', help='save estimates')
     parser.add_argument('--query_file', default='/home/ubuntu/data_CE/stats_CEB/stats_CEB.sql', help='Query file location')
+    parser.add_argument('--with_true_card', action='store_true', help='Is true cardinality included in the query?')
     parser.add_argument('--save_folder', default='/home/ubuntu/data_CE/stats_CEB/', help='Query file location')
     parser.add_argument('--iteration', type=int, default=None, help='Number of iteration to read')
+
     args = parser.parse_args()
     
     if args.iteration:

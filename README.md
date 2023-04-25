@@ -98,7 +98,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   python send_query.py --dataset stats
          --method_name [method].txt
          --query_file /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql
-         --save_folder /home/ubuntu/data_CE/stats_CEB/
+         --save_folder checkpoints/
   ```
   
   In order to reproduce the results, make sure to execute the query multiple time first to warm up postgres and make fair comparisons among all methods.
@@ -117,6 +117,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   ```
   Afterwards, an updated model should be saved under --model_path, and you can follow the previous instruction to evaluate its end-to-end performance.
   
+
 ## Reproducing result on IMDB-JOB
 
 As discussed in the paper, since IMDB-JOB contains complicated cyclic joins and complex predicates (disjunction, LIKE), 
@@ -172,6 +173,27 @@ https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-su
   query_file_location: the sql queries and their sub-plan queries
   
   save_folder: where to save the prediction
+
+### End-to-end performance
+  First, make sure you set up the docker environment for hacked Postgres: https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark
+  
+  Then run the following command to send the estimated results into docker container
+  ```
+  sudo docker cp checkpoints/[method].txt ce-benchmark:/var/lib/pgsql/13.1/data/[method].txt
+  ```
+  
+  /home/ubuntu/data_CE/CE_scheme_models/[method].txt is the location of the saved cardinality predictions
+  
+  Execute the follow command to get the end-to-end results:
+  ```
+  python send_query.py --dataset imdb
+         --method_name [method].txt
+         --query_file checkpoints/all_queries.sql
+         --save_folder checkpoints/
+  ```
+  
+  In order to reproduce the results, make sure to execute the query multiple time first to warm up postgres and make fair comparisons among all methods.
+
 
 ## Citation
 
