@@ -43,7 +43,8 @@ def get_binned_sqls(sql, equivalent_keys, sampling_percentage=1.0):
             if col not in binids:
                 binids[col] = t
 
-    tables, where_clause = parse_sql(sql)
+    tables, where_clauses = parse_sql(sql)
+    #print(where_clauses)
 
     alltabs = []
     allcols = []
@@ -53,12 +54,12 @@ def get_binned_sqls(sql, equivalent_keys, sampling_percentage=1.0):
         table_alias = tables[table]
         if table_alias is None:
             table_alias = table
-        where_clause = " AND ".join(where_clause[table_alias])
+        where_clause = " AND ".join(where_clauses[table_alias])
 
         # will need to loop over each potential bin value in these columns
         if table not in table_cols:
-            print("MISSING!!")
-            print(table)
+            #print("MISSING!!")
+            #print(table)
             continue
 
         if sampling_percentage is not None:
@@ -80,7 +81,7 @@ def get_binned_sqls(sql, equivalent_keys, sampling_percentage=1.0):
             if where_clause.strip() == "":
                 gsql = gsql.replace("WHERE", "")
 
-            print(gsql)
+            #print(gsql)
             alltabs.append((table_alias, ))
             allcols.append(curcol)
             allsqls.append(gsql)
@@ -104,12 +105,12 @@ def get_query_binned_cards(query_dir, db_conn_kwargs, equivalent_keys, sampling_
     files.sort()
 
     for i, file in enumerate(files):
-        if file.endswith(".sql") and file != "schema.sql" and file != "fkindexes.sql":
+        if file.endswith(".sql") and not file.endswith("schema.sql") and not file.endswith("fkindexes.sql"):
             with open(file, "r") as f:
                 sql = f.read()
             query_name = file.split("/")[-1].split(".sql")[0]
+            print(query_name)
             alltabs, allcols, allsqls = get_binned_sqls(sql, equivalent_keys, sampling_percentage)
-
             par_args = []
             for sql in allsqls:
                 par_args.append((sql, db_conn_kwargs))

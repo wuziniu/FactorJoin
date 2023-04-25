@@ -40,7 +40,7 @@ def get_job_sub_plan_queires(query_folder):
 	More details on how to derive the "job_sub_plan_queries.txt" can be found at:
 	https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-sub-plan-queries
 	"""
-	with open(query_folder + "job_sub_plan_queries.txt", "r") as f:
+	with open(os.path.join(query_folder, "job_sub_plan_queries.txt"), "r") as f:
 		sub_plan_queries = f.read()
 	psql_raw = sub_plan_queries.split("query: 0")[1:]
 	queries = []
@@ -85,7 +85,6 @@ def test_on_imdb(model_path, query_folder, SPERCENTAGE=None, query_sample_locati
 	Evaluate the trained FactorJoin model on the IMDB-JOB workload.
 	:param model_path: the trained model
 	:param query_file: a dictionary of queries, e.g. '1a': SQL query string for query '1a'
-	:param query_sub_plan_file: a dictionary of all subplans of a query,
 	:param SPERCENTAGE: the sampling rate for doing base table cardinality estimation
 	:param query_sample_location: if there exist a materialized sample that we can directly load from.
 	"""

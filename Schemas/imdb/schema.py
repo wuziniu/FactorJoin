@@ -1,3 +1,4 @@
+# This file is modified from DeepDB author's
 from Schemas.graph_representation import SchemaGraph, Table
 
 
@@ -136,12 +137,12 @@ def gen_imdb_schema(csv_path):
                            table_size=1312270))
 
     # movie_link, is empty
-    # schema.add_table(Table('movie_link', attributes=['id', 'movie_id', 'linked_movie_id', 'link_type_id'],
-    #                        csv_file_location=csv_path.format('movie_link')))
+    schema.add_table(Table('movie_link', attributes=['id', 'movie_id', 'linked_movie_id', 'link_type_id'],
+                            csv_file_location=csv_path.format('movie_link')))
 
     # link_type, no relationships
-    # schema.add_table(Table('link_type', attributes=['id', 'link'],
-    #                        csv_file_location=csv_path.format('link_type')))
+    schema.add_table(Table('link_type', attributes=['id', 'link'],
+                            csv_file_location=csv_path.format('link_type')))
 
     # movie_keyword
     schema.add_table(Table('movie_keyword', attributes=['id', 'movie_id', 'keyword_id'],
@@ -227,9 +228,9 @@ def gen_imdb_schema(csv_path):
     schema.add_relationship('aka_name', 'person_id', 'name', 'id')
 
     # movie_link, is empty
-    # schema.add_relationship('movie_link', 'link_type_id', 'link_type', 'id')
-    # schema.add_relationship('movie_link', 'linked_movie_id', 'title', 'id')
-    # schema.add_relationship('movie_link', 'movie_id', 'title', 'id')
+    schema.add_relationship('movie_link', 'link_type_id', 'link_type', 'id')
+    schema.add_relationship('movie_link', 'linked_movie_id', 'title', 'id')
+    schema.add_relationship('movie_link', 'movie_id', 'title', 'id')
 
     # link_type, no relationships
 
