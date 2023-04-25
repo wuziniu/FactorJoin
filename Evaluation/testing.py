@@ -11,21 +11,21 @@ def test_on_stats(model_path, query_file, save_res=None):
 	with open(query_file, "r") as f:
 		queries = f.readlines()
 
-	qerror = []
+	#qerror = []
 	latency = []
 	pred = []
 	for i, query_str in enumerate(queries):
 		query = query_str.split("||")[0][:-1]
-		true_card = int(query_str.split("||")[-1])
+		#true_card = int(query_str.split("||")[-1])
 		t = time.time()
 		res = bound_ensemble.get_cardinality_bound_one(query)
 		pred.append(res)
 		latency.append(time.time() - t)
-		qerror.append(max(res/true_card, true_card/res))
+		#qerror.append(max(res/true_card, true_card/res))
 
-	qerror = np.asarray(qerror)
-	for i in [50, 90, 95, 99, 100]:
-		print(f"q-error {i}% percentile is {np.percentile(qerror, i)}")
+	#qerror = np.asarray(qerror)
+	#for i in [50, 90, 95, 99, 100]:
+	#	print(f"q-error {i}% percentile is {np.percentile(qerror, i)}")
 	print(f"average latency per query is {np.mean(latency)}")
 	print(f"total estimation time is {np.sum(latency)}")
 
@@ -79,7 +79,7 @@ def get_job_sub_plan_queires(query_folder):
 	return all_queries, all_sub_plan_queries_str
 
 
-def test_on_imdb(model_path, query_folder, SPERCENTAGE=None, query_sample_location=None,
+def test_on_imdb(model_path, query_folder=None, derived_query_file=None, SPERCENTAGE=None, query_sample_location=None,
 				 save_res=None):
 	"""
 	Evaluate the trained FactorJoin model on the IMDB-JOB workload.
@@ -95,7 +95,11 @@ def test_on_imdb(model_path, query_folder, SPERCENTAGE=None, query_sample_locati
 	if query_sample_location:
 		bound_ensemble.query_sample_location = query_sample_location
 
-	all_queries, all_sub_plan_queries_str = get_job_sub_plan_queires(query_folder)
+	if derived_query_file:
+		all_queries, all_sub_plan_queries_str = get_job_sub_plan_queires(query_folder)
+	else:
+		with open(derived_query_file, "rb") as f:
+			all_queries, all_sub_plan_queries_str = pickle.load(f)
 
 	res = dict()
 	t = time.time()

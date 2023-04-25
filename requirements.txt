@@ -1,4 +1,3 @@
-jenkspy
 numpy
 numba
 pandas
@@ -9,4 +8,5 @@ networkx
 joblib
 psycopg2
 scikit-learn
-sqlparse
+sqlparse==0.4.1
+jenkspy==0.2.0

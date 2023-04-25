@@ -39,7 +39,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
 2. IMDB dataset:
    The imdb dataset can be downloaded here: http://homepages.cwi.nl/~boncz/job/imdb.tgz
    The JOB query workload can be downloaded from: https://db.in.tum.de/~leis/qo/job.tgz
-    
+
    
 ## Reproducing result on STATS-CEB:
 
@@ -123,6 +123,12 @@ As discussed in the paper, since IMDB-JOB contains complicated cyclic joins and 
 most existing learned cardinality estimators can handle it. FactorJoin also needs to make certain qualifications to 
 support it, including using sampling for base-table estimates.
 
+### Get the subplan queries of IMDB-JOB
+We provide the subplan queries in the checkpoints/derived_query_file.pkl, that you can directly load.
+
+If you are interested in how they are generated, you can refer to 
+https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-sub-plan-queries
+
 ### First run the following command to train the models
   ```
   python run_experiment.py --dataset imdb
@@ -146,17 +152,23 @@ support it, including using sampling for base-table estimates.
   bucket_method: binning method ["greedy", "fixed_start_key", "sub_optimal", and "naive"]. "fixed_start_key" is a fast
   approximation of GBSA and is recommended for IMDB-JOB workload because "greedy" is too slow.
 
+  additional args:
+
+  set --prepare_sample  for each training with different model parameters; this creates a new set of temporary tables in postgres
+
+  set --materialize_sample and --query_file_location to pre-material a sample for the queries
+
 ### Then, evaluate the learnt model
   ```
   python run_experiment.py --dataset stats
          --evaluate
          --model_path /home/ubuntu/data_CE/CE_scheme_models/model_stats_greedy_200.pkl
-         --query_file_location /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql
-         --save_folder /home/ubuntu/data_CE/CE_scheme_models/
+         --derived_query_file checkpoints/derived_query_file.pkl
+         --save_folder checkpoints/
   ```
   model_path: the location for the saved model
   
-  query_file_location: the sql file containing the queries
+  query_file_location: the sql queries and their sub-plan queries
   
   save_folder: where to save the prediction
 

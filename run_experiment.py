@@ -56,6 +56,9 @@ if __name__ == '__main__':
     parser.add_argument('--query_file_location',
                         default=None,
                         help='Location to the test queries')
+    parser.add_argument('--derived_query_file',
+                        default=None,
+                        help='Location to the queries and its sub-plan queries')
     parser.add_argument('--save_folder',
                         default='/home/ubuntu/data_CE/CE_scheme_models/')
 
@@ -93,8 +96,8 @@ if __name__ == '__main__':
             print(f"Training completed: total training time is {end_time - start_time}")
             
         elif args.evaluate:
-            save_file = args.save_folder + "stats_CEB_sub_queries_" + \
-                        args.model_path.split("/")[-1].split(".pkl")[0] + ".txt"
+            save_file = os.path.join(args.save_folder, "stats_CEB_sub_queries_" +
+                                     args.model_path.split("/")[-1].split(".pkl")[0] + ".txt")
             test_on_stats(args.model_path, args.query_file_location, save_file)
 
         elif args.update_evaluate:
@@ -113,7 +116,7 @@ if __name__ == '__main__':
             print(f"Training completed: total training time is {end_time - start_time}")
 
         elif args.evaluate:
-            test_on_imdb(args.model_path, args.query_file, args.SPERCENTAGE,
+            test_on_imdb(args.model_path, args.query_file, args.derived_query_file, args.SPERCENTAGE,
                          args.query_sample_location, args.save_folder)
             
 
