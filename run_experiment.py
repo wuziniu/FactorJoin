@@ -35,6 +35,9 @@ if __name__ == '__main__':
     parser.add_argument('--sample_size', type=int,
                         default=1000000,
                         help='Generate a sample of datasets instead of using the full data')
+    parser.add_argument('--prepare_sample', type=float,
+                        action='store_true',
+                        help='Create a temp table for sampling purposes')
     parser.add_argument('--sampling_percentage', type=float,
                         default=1.0,
                         help='Sample rate in percentage')
@@ -104,8 +107,8 @@ if __name__ == '__main__':
             start_time = time.time()
             train_one_imdb(args.data_path, args.model_path, args.n_dim_dist, args.n_bins, args.bucket_method,
                            args.sample_size, args.external_workload_file, args.save_bucket_bins, args.seed,
-                           args.db_conn_kwargs, args.sampling_percentage, args.sampling_type, args.query_file_location,
-                           args.materialize_sample)
+                           args.prepare_sample, args.db_conn_kwargs, args.sampling_percentage, args.sampling_type,
+                           args.query_file_location, args.materialize_sample)
             end_time = time.time()
             print(f"Training completed: total training time is {end_time - start_time}")
 

@@ -44,9 +44,6 @@ def create_binned_cols(db_conn_kwargs, bins, equivalent_keys, sampling_percentag
             new_table = new_table.replace(".", "d")
             print(new_table)
 
-            drop_sql = DROP_TEMPLATE.format(TABLE_NAME=new_table)
-            cursor.execute(drop_sql)
-
             sel_sql = "SELECT * FROM {} WHERE random() < {}".format( \
                 table, str(cur_sampling_frac))
             create_sql = CREATE_TEMPLATE.format(TABLE_NAME=new_table,

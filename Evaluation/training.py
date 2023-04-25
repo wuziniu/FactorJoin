@@ -71,8 +71,9 @@ def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, 
 
 
 def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_method="fixed_start_key",
-                   sample_size=1000000, query_workload_file=None, save_bucket_bins=False, seed=0, db_conn_kwargs=None,
-                   sampling_percentage=1.0, sampling_type='ss', test_query_file=None, materialize_sample=False):
+                   sample_size=1000000, query_workload_file=None, save_bucket_bins=False, seed=0, prepare_sample=False,
+                   db_conn_kwargs=None, sampling_percentage=1.0, sampling_type='ss', test_query_file=None,
+                   materialize_sample=False):
     """
     Training one FactorJoin model on IMDB dataset.
     :param data_path: The path to IMDB dataset
@@ -119,7 +120,8 @@ def train_one_imdb(data_path, model_folder, n_dim_dist=1, bin_size=None, bucket_
     pickle.dump(be, open(model_path, 'wb'), pickle.HIGHEST_PROTOCOL)
     print(f"models save at {model_path}")
     # create new tables for sampling purposes
-    create_binned_cols(db_conn_kwargs, bins, equivalent_keys, sampling_percentage, sampling_type)
+    if prepare_sample:
+        create_binned_cols(db_conn_kwargs, bins, equivalent_keys, sampling_percentage, sampling_type)
     if materialize_sample and test_query_file is not None:
         get_query_binned_cards(test_query_file, db_conn_kwargs, equivalent_keys, sampling_percentage, model_folder)
 
