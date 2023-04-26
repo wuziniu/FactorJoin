@@ -6,7 +6,7 @@ from Join_scheme.join_graph import process_condition, get_join_hyper_graph, pars
 from Join_scheme.data_prepare import identify_key_values
 from BayesCard.Evaluation.cardinality_estimation import timestamp_transorform, construct_table_query
 from Sampling.load_sample import load_sample_imdb_one_query
-from Sampling.sample_on_the_fly import sample_on_the_fly
+#from Sampling.sample_on_the_fly import sample_on_the_fly
 from Join_scheme.factor import Factor, Group_Factor
 
 
@@ -54,7 +54,6 @@ class Bound_ensemble:
         if self.bns is None:
             # this is a hack, since we currently only implemented the bayescard and sampling for single table estimate
             tables_all, join_cond, join_keys = parse_query_all_join(query)
-            # TODO: implement functions on parsing filter conditions.
             table_filters = dict()
             return tables_all, table_filters, join_cond, join_keys
 
@@ -98,7 +97,6 @@ class Bound_ensemble:
                         join_keys[tab] = set([join_key[tab]])
 
         return tables_all, table_query, join_cond, join_keys
-
 
     def get_all_id_conidtional_distribution_sample(self, query_str, query_file_name, tables_alias, join_keys):
         if self.query_sample_location is not None:
@@ -193,7 +191,7 @@ class Bound_ensemble:
             temp_all_modes.append(np.minimum(all_probs[i], all_modes[i]))
         all_probs = np.stack(all_probs, axis=0)
         temp_all_modes = np.stack(temp_all_modes, axis=0)
-        multiplier = np.prod(all_modes, axis=0)
+        multiplier = np.prod(temp_all_modes, axis=0)
         non_zero_idx = np.where(multiplier != 0)[0]
         min_number = np.amin(all_probs[:, non_zero_idx] / temp_all_modes[:, non_zero_idx], axis=0)
         if return_factor:
@@ -229,7 +227,7 @@ class Bound_ensemble:
         optimal_order = list(equivalent_group.keys())
         for i in range(len(optimal_order)):
             min_idx = i
-            for j in range(i+1, len(optimal_order)):
+            for j in range(i + 1, len(optimal_order)):
                 min_group = optimal_order[min_idx]
                 curr_group = optimal_order[j]
                 if np.max(cardinalities[curr_group]) < np.max(cardinalities[min_group]):
@@ -250,7 +248,8 @@ class Bound_ensemble:
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group = get_join_hyper_graph(join_keys, self.equivalent_keys)
         if self.bns is not None:
-            conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys, equivalent_group)
+            conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys,
+                                                                              equivalent_group)
         else:
             conditional_factors = self.get_all_id_conidtional_distribution_sample(query_str, query_name, tables_all,
                                                                                   join_keys)
@@ -324,9 +323,6 @@ class Bound_ensemble:
         :param query_str: the target query
         :param sub_plan_query_str_all: all sub_plan_queries of the target query,
                it should be sorted by number of the tables in the sub_plan_query
-        :param query_name: name of the query
-        :param debug: enable printing
-        :param true_card: true cardinality of all queries, this is for debug purpose only.
         """
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
         equivalent_group, table_equivalent_group, table_key_equivalent_group, table_key_group_map = \
@@ -337,7 +333,6 @@ class Bound_ensemble:
         else:
             conditional_factors = self.get_all_id_conidtional_distribution_sample(query_str, query_name, tables_all,
                                                                                   join_keys)
-        # self.reverse_table_alias = {v: k for k, v in tables_all.items()}
         cached_sub_queries = dict()
         cardinality_bounds = []
         for i, (left_tables, right_tables) in enumerate(sub_plan_query_str_all):
@@ -375,7 +370,6 @@ class Bound_ensemble:
                     error = "NA"
                 else:
                     error = max(res / true_card[i], true_card[i] / res)
-                print(error)
             cardinality_bounds.append(res)
         return cardinality_bounds
 
@@ -383,6 +377,8 @@ class Bound_ensemble:
                             table_equivalent_group, table_key_equivalent_group, table_key_group_map, join_cond):
         """
         Get the cardinality bound by joining the left_table with the seen right_tables
+        :param left_table:
+        :param right_tables:
         """
         equivalent_key_group, union_key_group_set, union_key_group, new_join_cond = \
             self.get_join_keys_with_table_group(left_table, right_bound_factor, tables_all, table_equivalent_group,
@@ -592,10 +588,10 @@ class Bound_ensemble:
         new_na_values = dict()
         new_variables = dict()
         for key_group in equivalent_key_group:
-            # if len(equivalent_key_group[key_group][left_table]) > 1:
-            #   print(len(equivalent_key_group[key_group][left_table]), sub_plan_query_str)
-            # if len(equivalent_key_group[key_group][right_table]) > 1:
-            #   print(len(equivalent_key_group[key_group][right_table]), sub_plan_query_str)
+            #if len(equivalent_key_group[key_group][left_table]) > 1:
+             #   print(len(equivalent_key_group[key_group][left_table]), sub_plan_query_str)
+            #if len(equivalent_key_group[key_group][right_table]) > 1:
+             #   print(len(equivalent_key_group[key_group][right_table]), sub_plan_query_str)
             all_pdfs = [cond_factor_left.pdfs[key] * cond_factor_left.table_len * cond_factor_left.na_values[key]
                         for key in equivalent_key_group[key_group][left_table]] + \
                        [cond_factor_right.pdfs[key] * res * cond_factor_right.na_values[key]
@@ -781,4 +777,3 @@ class Bound_ensemble:
                 join_keys[table2].add(key2)
 
         return join_keys
-
