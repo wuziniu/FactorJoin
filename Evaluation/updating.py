@@ -23,7 +23,7 @@ def get_data_by_date(data_path, time_date="2014-01-01 00:00:00"):
     after_data = dict()
     for table_obj in schema.tables:
         table_name = table_obj.table_name
-        df_rows = read_table_csv(table_obj)
+        df_rows = read_table_csv(table_obj, db_name="stats")
         idx = len(df_rows)
         for attribute in df_rows.columns:
             if "Date" in attribute:

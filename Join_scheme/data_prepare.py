@@ -8,6 +8,7 @@ import os
 
 from Schemas.stats.schema import gen_stats_light_schema
 from Schemas.imdb.schema import gen_imdb_schema
+from Schemas.ssb.schema import gen_1gb_ssb_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, \
                                 fixed_start_key_bucketize, get_start_key, naive_bucketize, \
                                 Table_bucket, update_bins, apply_binning_to_data_value_count
@@ -44,7 +45,7 @@ def get_data_by_date(data_path, time_date="2014-01-01 00:00:00"):
     after_data = dict()
     for table_obj in schema.tables:
         table_name = table_obj.table_name
-        df_rows = read_table_csv(table_obj)
+        df_rows = read_table_csv(table_obj, db_name="stats")
         idx = len(df_rows)
         for attribute in df_rows.columns:
             if "Date" in attribute:
@@ -71,12 +72,15 @@ def convert_time_to_int(data_folder):
             df_rows.to_csv(csv_file_location, index=False)
 
 
-def read_table_csv(table_obj, csv_seperator=',', stats=True):
+def read_table_csv(table_obj, csv_seperator=',', db_name="stats"):
     """
     Reads csv from path, renames columns and drops unnecessary columns
     """
-    if stats:
+    if db_name == "stats":
         df_rows = pd.read_csv(table_obj.csv_file_location)
+    elif db_name == "ssb":
+        df_rows = pd.read_csv(table_obj.csv_file_location, header=None, escapechar='\\', sep="|",
+                              encoding="ISO-8859-1", quotechar='"')
     else:
         df_rows = pd.read_csv(table_obj.csv_file_location, header=None, escapechar='\\', encoding='utf-8',
                               quotechar='"',
@@ -265,7 +269,7 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         if table_name in actual_data:
             df_rows = copy.deepcopy(actual_data[table_name])
         else:
-            df_rows = read_table_csv(table_obj, stats=True)
+            df_rows = read_table_csv(table_obj, db_name="stats")
         for attr in df_rows.columns:
             if attr in all_keys:
                 table_key_lens[attr] = len(df_rows)
@@ -377,7 +381,7 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, null_valu
                 print(f"{table_name} does not have data to update")
                 continue
         else:
-            df_rows = read_table_csv(table_obj, stats=True)
+            df_rows = read_table_csv(table_obj, db_name="stats")
         for attr in df_rows.columns:
             if attr in all_keys:
                 key_data[attr] = df_rows[attr].values

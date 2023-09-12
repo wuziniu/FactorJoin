@@ -6,7 +6,6 @@ from Join_scheme.join_graph import process_condition, get_join_hyper_graph, pars
 from Join_scheme.data_prepare import identify_key_values
 from BayesCard.Evaluation.cardinality_estimation import timestamp_transorform, construct_table_query
 from Sampling.load_sample import load_sample_imdb_one_query
-#from Sampling.sample_on_the_fly import sample_on_the_fly
 from Join_scheme.factor import Factor, Group_Factor
 
 

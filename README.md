@@ -1,7 +1,5 @@
 # FactorJoin: A New Cardinality Estimation Framework for Join Queries
 
-## Supplementary material
-  The supplement material of our SIGMOD submission can be found under the home directory "sigmod_supplementary.pdf".
 
 ## Environment setup
   ```
@@ -39,6 +37,20 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
 2. IMDB dataset:
    The imdb dataset can be downloaded here: http://homepages.cwi.nl/~boncz/job/imdb.tgz
    The JOB query workload can be downloaded from: https://db.in.tum.de/~leis/qo/job.tgz
+
+3. SSB dataset:
+   The Star-Schema-Benchmark can be found here: https://github.com/electrum/ssb-dbgen
+   ```
+   git clone https://github.com/electrum/ssb-dbgen
+   cd ssb-dbgen
+   make
+   ./dbgen -s 1 -T a
+   ```
+   You can choose the scale factor by setting -s to a different value, then convert the .tbl file to a .cvs for each 
+   table t.
+   ```
+   sed 's/|$//' t.tbl > t.csv
+   ```
 
    
 ## Reproducing result on STATS-CEB:
@@ -193,6 +205,10 @@ https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-su
   ```
   
   In order to reproduce the results, make sure to execute the query multiple time first to warm up postgres and make fair comparisons among all methods.
+
+
+## Reproducing result on SSB
+
 
 
 ## Citation
