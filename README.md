@@ -19,15 +19,15 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
    
    Clone the cardinality estimation benchmark repo:
    
-   ```
+   ```bash
    git clone https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark
    ```
     
    The STATS dataset can be found at: https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark/tree/master/datasets/stats_simplified
    
    After downloading the dataset, execute the following script to convert the date_time into integers.
-   ```
-   python run_experiment.py --dataset stats --preprocess_data 
+   ```bash
+   python run_experiment.py --dataset stats --preprocess_data \
                             --data_folder /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/
    ```
    
@@ -59,12 +59,12 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   ### First run the following command to train the models
   ```
-  python run_experiment.py --dataset stats
-         --generate_models
-         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv
-         --model_path checkpoints/
-         --n_dim_dist 2
-         --n_bins 200
+  python run_experiment.py --dataset stats \
+         --generate_models \
+         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified/{}.csv \
+         --model_path checkpoints/ \
+         --n_dim_dist 2 \
+         --n_bins 200 \
          --bucket_method greedy
   ```
   data_path: the stats dataset you just downloaded
@@ -83,10 +83,10 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   ### Then, evaluate the learnt model
   ```
-  python run_experiment.py --dataset stats
-         --evaluate
-         --model_path checkpoints/model_stats_greedy_200.pkl
-         --query_file_location /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql
+  python run_experiment.py --dataset stats \
+         --evaluate \
+         --model_path checkpoints/model_stats_greedy_200.pkl \
+         --query_file_location /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/sub_plan_queries/stats_CEB_sub_queries.sql \
          --save_folder checkpoints/
   ```
   model_path: the location for the saved model
@@ -107,9 +107,9 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   
   Execute the follow command to get the end-to-end results:
   ```
-  python send_query.py --dataset stats
-         --method_name [method].txt
-         --query_file /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql
+  python send_query.py --dataset stats \
+         --method_name [method].txt \
+         --query_file /home/ubuntu/End-to-End-CardEst-Benchmark/workloads/stats_CEB/stats_CEB.sql \
          --save_folder checkpoints/
   ```
   
@@ -118,13 +118,13 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
   ### Model Update
   Run the following command to train a FactorJoin on data before 2014 and incrementally update the model with data after 2014:
   ```
-  python run_experiment.py --dataset stats
-         --update_evaluate
-         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified
-         --model_path checkpoints/update/
-         --n_dim_dist 2
-         --n_bins 200
-         --bucket_method sub_optimal
+  python run_experiment.py --dataset stats \
+         --update_evaluate \
+         --data_path /home/ubuntu/End-to-End-CardEst-Benchmark/datasets/stats_simplified \
+         --model_path checkpoints/update/ \
+         --n_dim_dist 2 \
+         --n_bins 200 \
+         --bucket_method sub_optimal \
          --split_date '2014-01-01 00:00:00'
   ```
   Afterwards, an updated model should be saved under --model_path, and you can follow the previous instruction to evaluate its end-to-end performance.
@@ -144,12 +144,12 @@ https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-su
 
 ### First run the following command to train the models
   ```
-  python run_experiment.py --dataset imdb
-         --generate_models
-         --data_path /home/ubuntu/data_CE/imdb/{}.csv
-         --model_path checkpoints/
-         --n_dim_dist 1
-         --bucket_method fixed_start_key
+  python run_experiment.py --dataset imdb \
+         --generate_models \
+         --data_path /home/ubuntu/data_CE/imdb/{}.csv \
+         --model_path checkpoints/ \
+         --n_dim_dist 1 \
+         --bucket_method fixed_start_key \
          --db_conn_kwargs "dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5436"
   ```
   data_path: the stats dataset you just downloaded

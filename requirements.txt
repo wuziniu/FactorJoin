@@ -6,7 +6,7 @@ Pgmpy
 pomegranate
 networkx
 joblib
-psycopg2
+psycopg2-binary
 scikit-learn
 sqlparse==0.4.1
 jenkspy==0.2.0
