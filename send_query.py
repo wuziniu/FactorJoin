@@ -6,7 +6,7 @@ import numpy as np
 
 
 def send_query(dataset, method_name, query_file, save_folder, iteration=None):
-    conn = psycopg2.connect(database=dataset, user="postgres", password="postgres", host="127.0.0.1", port=5436,)
+    conn = psycopg2.connect(database=dataset, user="postgres", password="postgres", host="127.0.0.1", port=5432,)
     cursor = conn.cursor()
 
 

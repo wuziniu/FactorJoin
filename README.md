@@ -2,10 +2,16 @@
 
 
 ## Environment setup
+  We use python version 3.7 and all required packages are specified in requirements.txt.
+
+  ```
+  pip install -r requirements.txt
+  ```
+
+  You can use anaconda (https://docs.anaconda.com/free/anaconda/install/index.html) to create a specifical python environment.
   ```
   conda create -n factorjoin python=3.7
   conda activate factorjoin
-  pip install -r requirements.txt
   ```
 
   For end-to-end evaluation, please set up the docker container for hacked Postgres: 
@@ -150,7 +156,7 @@ https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-su
          --model_path checkpoints/ \
          --n_dim_dist 1 \
          --bucket_method fixed_start_key \
-         --db_conn_kwargs "dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5436"
+         --db_conn_kwargs "dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5432"
   ```
   data_path: the stats dataset you just downloaded
 
