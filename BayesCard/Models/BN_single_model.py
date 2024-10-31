@@ -52,7 +52,7 @@ class BN_Single():
                 table = table.drop(col, axis=1)
             elif col in id_attributes:
                 self.encoding[col] = np.sort(np.unique(table[col].values)).astype(int)
-                if self.encoding[col][0] == -1:
+                if self.encoding[col][0] < 0:
                     self.id_exist_null[col] = True
                     self.id_value_position[col] = self.encoding[col][1:]
                 else:
@@ -68,6 +68,7 @@ class BN_Single():
                     n_bins=n_bins,
                     is_continous=self.attr_type[col] == "continuous",
                     drop_na=not drop_na,
+                    null_value=self.null_values[col]
                     )
                 self.max_value[col] = int(table[col].max()) + 1
         self.node_names = list(table.columns)
@@ -245,7 +246,7 @@ class BN_Single():
         if isinstance(val, float):
             return True
 
-    def get_attr_type(self, dataset, id_attributes=[], threshold=3000):
+    def get_attr_type(self, dataset, id_attributes=[], threshold=1000):
         attr_type = dict()
         for col in dataset.columns:
             if col in id_attributes:
@@ -254,7 +255,7 @@ class BN_Single():
             n_unique = dataset[col].nunique()
             if n_unique == 2:
                 attr_type[col] = 'boolean'
-            elif n_unique >= len(dataset)/20 or (self.is_numeric(dataset[col].iloc[0]) and n_unique > threshold):
+            elif n_unique > threshold:
                 attr_type[col] = 'continuous'
             else:
                 attr_type[col] = 'categorical'
@@ -284,7 +285,7 @@ class BN_Single():
     def apply_ndistinct_to_value(self, enc_value, value, col):
         # return the number of distinct value in the bin
         if col not in self.n_in_bin:
-            return 1
+            return np.ones(len(enc_value))
         else:
             if type(enc_value) != list:
                 enc_value = [enc_value]
@@ -304,8 +305,8 @@ class BN_Single():
             return np.asarray(n_distinct)
 
     def learn_model_structure(self, dataset, nrows=None, id_attributes=[], attr_type=None, rows_to_use=500000,
-                              n_mcv=30, n_bins=60, ignore_cols=['id'], algorithm="greedy", drop_na=True, max_parents=2,
-                              root=None, n_jobs=8, return_model=False, return_dataset=False, discretized=False):
+                              n_mcv=30, n_bins=60, ignore_cols=['id'], algorithm="chow-liu", drop_na=True, max_parents=2,
+                              root=None, n_jobs=8, return_dataset=False, discretized=False):
         """ Build the Pomegranate model from data, including structure learning and paramter learning
             ::Param:: dataset: pandas.dataframe
                       attr_type: type of attributes (binary, discrete or continuous)
@@ -324,11 +325,12 @@ class BN_Single():
         self.n_mcv = n_mcv
         self.n_bins = n_bins
         self.root = root
-
+        #ignore_cols = [self.table_name + '.' + col for col in ignore_cols]
         if attr_type is None:
             self.attr_type = self.get_attr_type(dataset, id_attributes)
         else:
             self.attr_type = attr_type
+        print(self.attr_type)
         t = time.time()
         if not discretized:
             discrete_table = self.build_discrete_table(dataset, id_attributes, n_mcv, n_bins, drop_na, ignore_cols)
@@ -336,36 +338,34 @@ class BN_Single():
             logger.info(f'Learning BN optimal structure from data with {self.nrows} rows and'
                         f' {len(self.node_names)} cols')
             print(f'Discretizing table takes {time.time() - t} secs')
+        else:
+            discrete_table = dataset
         t = time.time()
         if len(discrete_table) <= rows_to_use:
-            model = pomegranate.BayesianNetwork.from_samples(discrete_table,
-                                                         algorithm=algorithm,
-                                                         state_names=self.node_names,
-                                                         max_parents=max_parents,
-                                                         n_jobs=n_jobs,
-                                                         root=self.root)
+            sample_discrete_table = discrete_table
         else:
-            model = pomegranate.BayesianNetwork.from_samples(discrete_table.sample(n=rows_to_use),
+            sample_discrete_table = discrete_table.sample(n=rows_to_use)
+        if pomegranate.__version__ >= "0.13.0":
+            from pomegranate.bayesian_network import _learn_structure
+            import torch
+            discrete_table_torch = torch.from_numpy(sample_discrete_table.values).to(torch.int64)
+            self.structure = _learn_structure(discrete_table_torch,
+                                              algorithm=algorithm,
+                                              max_parents=max_parents,
+                                              root=self.root)
+        else:
+            model = pomegranate.BayesianNetwork.from_samples(sample_discrete_table,
                                                          algorithm=algorithm,
                                                          state_names=self.node_names,
                                                          max_parents=max_parents,
                                                          n_jobs=n_jobs,
                                                          root=self.root)
+            self.structure = model.structure
         logger.info(f'Structure learning took {time.time() - t} secs.')
         print(f'Structure learning took {time.time() - t} secs.')
 
-        self.structure = model.structure
-
-        if return_model:
-            if return_dataset:
-                return model, discrete_table
-            else:
-                return model
-        elif return_dataset:
+        if return_dataset:
             return discrete_table
-
-        return None
-
 
     def save(self, path, compress=False):
         if compress:

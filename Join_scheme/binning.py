@@ -15,7 +15,7 @@ class Bucket:
         self.bin_modes = bin_modes
         self.bin_vars = bin_vars
         self.bin_means = bin_means
-        self.bin_width = [0] * len(bin_means)
+        self.bin_width = [0] * len(bin_modes)
         self.rest_bins_remaining = rest_bins_remaining
         if len(bins) != 0:
             assert len(bins) == len(bin_modes)
@@ -98,7 +98,7 @@ class Bucket_group:
         for key in data:
             if key in self.primary_keys:
                 res[key] = self.bucketize_PK(data[key])
-                self.buckets[key] = Bucket(key, bin_modes=np.ones(len(self.bins)))
+                self.buckets[key] = Bucket(key, bin_modes=np.ones(len(self.bins)), bin_means=np.ones(len(self.bins)))
 
         for key in data:
             if key in self.primary_keys:
@@ -116,13 +116,13 @@ class Bucket_group:
         for i, b in enumerate(self.bins):
             res[np.isin(data, b)] = i
             remaining_data = np.setdiff1d(remaining_data, b)
-        res[np.isin(data, remaining_data)] = -1
         if len(remaining_data) != 0:
             self.bins.append(list(remaining_data))
             for key in self.buckets:
                 if key not in self.primary_keys:
                     self.buckets[key].bin_modes = np.append(self.buckets[key].bin_modes, 0)
-        res[np.isin(data, remaining_data)] = len(self.bins)
+                    self.buckets[key].bin_means = np.append(self.buckets[key].bin_means, 0)
+        res[np.isin(data, remaining_data)] = len(self.bins) - 1
         return res
 
 
@@ -320,7 +320,10 @@ def divide_bin(bin, curr_bin_data, n_bins, start_key_data):
     uniques = uniques[idx]
 
     # Natural breaks optimization using Fisher-Jenks Algorithms
-    breaks = jenkspy.jenks_breaks(counts, nb_class=n_bins)
+    if jenkspy.__version__ >= "0.2.0":
+        breaks = jenkspy.jenks_breaks(counts, n_classes=n_bins)
+    else:
+        breaks = jenkspy.jenks_breaks(counts, nb_class=n_bins)
     breaks[-1] += 0.01
     new_bins = []
     bin_means = []

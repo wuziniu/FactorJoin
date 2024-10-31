@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 import time
 import os
+import re
 
 from Schemas.stats.schema import gen_stats_light_schema
-from Schemas.imdb.schema import gen_imdb_schema
-from Schemas.ssb.schema import gen_1gb_ssb_schema
+from Schemas.imdb.schema import gen_imdb_schema, gen_job_light_imdb_schema
 from Join_scheme.binning import identify_key_values, sub_optimal_bucketize, greedy_bucketize, \
                                 fixed_start_key_bucketize, get_start_key, naive_bucketize, \
                                 Table_bucket, update_bins, apply_binning_to_data_value_count
@@ -21,6 +21,129 @@ def timestamp_transorform(time_string, start_date="2010-07-19 00:00:00"):
     start_date_int = time.strptime(start_date, "%Y-%m-%d %H:%M:%S")
     time_array = time.strptime(time_string, "%Y-%m-%d %H:%M:%S")
     return int(time.mktime(time_array)) - int(time.mktime(start_date_int))
+
+
+def convert_phonetic_code_to_int(phonetic_code):
+    converted_code = "".join(str(ord(char)-ord('A')) if char.isalpha() else char for char in phonetic_code)
+    numeric_value = int(converted_code)
+    return numeric_value
+
+
+def process_phonetic_code_column(array):
+    int_value = []
+    for a in array:
+        if type(a) != str:
+            int_value.append(a)
+        else:
+            int_value.append(convert_phonetic_code_to_int(a))
+    return np.asarray(int_value)
+
+def convert_series_years_to_int(series_years):
+    pattern = r"(\d{4}|[?]{4})-(\d{4}|[?]{4})"
+    matches = re.findall(pattern, series_years)
+    if len(matches) != 1:
+        return 0
+    (start, end) = matches[0]
+    if start == "????":
+        start = "1000"
+    if end == "????":
+        end = "9999"
+    numeric_value = int(start+end)
+    return numeric_value
+
+
+def process_series_years_column(array):
+    int_value = []
+    for v in array:
+        if type(v) != str:
+            int_value.append(v)
+        else:
+            int_value.append(convert_series_years_to_int(v))
+    return np.asarray(int_value)
+
+
+def roman_to_int(roman):
+    if roman.isdigit():
+        return int(roman)
+    # Mapping Roman numerals to their integer values
+    roman_values = {
+        'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000
+    }
+    total = 0
+
+    for i in range(len(roman) - 1):
+        if roman_values[roman[i]] < roman_values[roman[i + 1]]:
+            total -= roman_values[roman[i]]
+        else:
+            total += roman_values[roman[i]]
+    total += roman_values[roman[-1]]
+    return total
+
+
+def process_imdb_index_column(array):
+    int_value = []
+    for v in array:
+        if type(v) != str:
+            int_value.append(v)
+        else:
+            int_value.append(roman_to_int(v))
+    return np.asarray(int_value)
+
+
+def convert_str_type_to_int_for_job_light_ranges(schema, query_path, target_dir):
+    os.makedirs(target_dir, exist_ok=True)
+    for table in schema.table_dictionary:
+        table_obj = schema.table_dictionary[table]
+        df_rows = pd.read_csv(table_obj.csv_file_location, sep="|")
+
+        df_rows.columns = [table_obj.table_name + '.' + attr for attr in table_obj.attributes]
+        for attribute in table_obj.irrelevant_attributes:
+            df_rows = df_rows.drop(table_obj.table_name + '.' + attribute, axis=1)
+        if table == "title":
+            df_rows["title.phonetic_code"] = process_phonetic_code_column(df_rows["title.phonetic_code"].values)
+            df_rows["title.series_years"] = process_series_years_column(df_rows["title.series_years"].values)
+            df_rows["title.imdb_index"] = process_imdb_index_column(df_rows["title.imdb_index"].values)
+        df_rows.to_csv(os.path.join(target_dir, f"{table}.csv"), index=False)
+
+    with open(query_path, "r") as f:
+        sql_queries = f.readlines()
+    new_queries = []
+    for query in sql_queries:
+        pattern = r"t\.phonetic_code\s*(<=|>=|=|<|>)\s*'([A-Z]\d+)'"
+        matches = re.findall(pattern, query)
+        for operator, phonetic_code in matches:
+            int_rep = str(convert_phonetic_code_to_int(phonetic_code))
+            query = query.replace(f"'{phonetic_code}'", int_rep)
+        # hard coded for these special cases
+        query = query.replace("t.phonetic_code<='P'", "t.phonetic_code<=200000")
+        query = query.replace("t.phonetic_code<='G'", "t.phonetic_code<=100000")
+
+        pattern = r"t\.series_years\s*(<=|>=|=|<|>)\s*'(\d{4}|[?]{4})-(\d{4}|[?]{4})'"
+        matches = re.findall(pattern, query)
+        for operator, start_year, end_year in matches:
+            series_year_str = start_year + '-' + end_year
+            if start_year == "????":
+                start_year = str(0)
+            query = query.replace(f"'{series_year_str}'", start_year)
+
+        pattern = r"t\.imdb_index\s*(<=|>=|=|<|>)\s*'([IVXLCDM]+)'"
+        matches = re.findall(pattern, query)
+
+        # Display matches
+        for operator, roman_numeral in matches:
+            int_value = roman_to_int(roman_numeral)
+            query = query.replace(f"'{roman_numeral}'", str(int_value))
+
+        new_queries.append(query)
+
+    with open(os.path.join(target_dir, "JOBLightRangesQueries.sql"), "w") as f:
+        for query in new_queries:
+            f.write(query)
+
+
+def preprocess_imdb_light_data(data_folder, query_path, target_dir):
+    schema = gen_job_light_imdb_schema(data_folder)
+    convert_str_type_to_int_for_job_light_ranges(schema, query_path, target_dir)
 
 
 def read_table_hdf(table_obj):
@@ -76,7 +199,7 @@ def read_table_csv(table_obj, csv_seperator=',', db_name="stats"):
     """
     Reads csv from path, renames columns and drops unnecessary columns
     """
-    if db_name == "stats":
+    if db_name == "stats" or db_name == "imdb-light":
         df_rows = pd.read_csv(table_obj.csv_file_location)
     elif db_name == "ssb":
         df_rows = pd.read_csv(table_obj.csv_file_location, header=None, escapechar='\\', sep="|",
@@ -239,7 +362,7 @@ def update_table_buckets(buckets, data, binned_data, all_bin_modes, table_bucket
     return table_buckets
 
 
-def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False,
+def process_stats_data(dataset, data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False,
                        return_bin_means=False, get_bin_means=False, actual_data=None):
     """
     Preprocessing stats data and generate optimal bucket
@@ -251,7 +374,12 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
     """
     if not data_path.endswith(".csv"):
         data_path += "/{}.csv"
-    schema = gen_stats_light_schema(data_path)
+    if dataset == "stats":
+        schema = gen_stats_light_schema(data_path)
+    elif dataset == "imdb-light":
+        schema = gen_job_light_imdb_schema(data_path)
+    else:
+        assert False, f"dataset: {dataset} not supported for this function"
     all_keys, equivalent_keys = identify_key_values(schema)
     if actual_data is None:
         actual_data = dict()
@@ -269,7 +397,10 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         if table_name in actual_data:
             df_rows = copy.deepcopy(actual_data[table_name])
         else:
-            df_rows = read_table_csv(table_obj, db_name="stats")
+            if dataset == "stats":
+                df_rows = read_table_csv(table_obj, db_name="stats")
+            else:
+                df_rows = pd.read_csv(table_obj.csv_file_location)
         for attr in df_rows.columns:
             if attr in all_keys:
                 table_key_lens[attr] = len(df_rows)
@@ -313,8 +444,13 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
             temp_data, optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
         elif bucket_method == "fixed_start_key":
             start_key = get_start_key(list(group_data.keys()), table_key_lens, primary_keys)
+            print(f"selected start key is {start_key}")
+            if type(n_bins) == dict():
+                curr_n_bins = n_bins[PK]
+            else:
+                curr_n_bins = n_bins
             temp_data, optimal_bucket = fixed_start_key_bucketize(start_key, group_data, group_sample_rate,
-                                                                  n_bins=n_bins[PK], primary_keys=primary_keys,
+                                                                  n_bins=curr_n_bins, primary_keys=primary_keys,
                                                                   return_data=True)
         else:
             assert False, f"unrecognized bucketization method: {bucket_method}"
@@ -346,11 +482,11 @@ def process_stats_data(data_path, model_folder, n_bins=500, bucket_method="greed
         data[temp_table_name][K] = binned_data[K]
 
     if save_bucket_bins:
-        with open(model_folder + "buckets.pkl", "wb") as f:
+        with open(os.path.join(model_folder, f"{dataset}_buckets.pkl"), "wb") as f:
             pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
     if return_bin_means:
         return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size, all_bin_means, all_bin_width
-    return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size
+    return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size, None, None
 
 
 def update_stats_data(data_path, model_folder, buckets, table_buckets, null_values=None,
@@ -578,4 +714,117 @@ def process_imdb_data(data_path, model_folder, n_bins, bucket_method, sample_siz
 
     return schema, table_buckets, ground_truth_factors_no_filter, optimal_buckets, equivalent_keys
 
+
+def process_imdb_light_data(data_path, model_folder, n_bins=500, bucket_method="greedy", save_bucket_bins=False,
+                       return_bin_means=False, get_bin_means=False):
+    """
+    Preprocessing stats data and generate optimal bucket
+    :param data_path: path to stats data folder
+    :param n_bins: number of bins (the actually number of bins returned will be smaller than this)
+    :param bucket_method: choose between "sub_optimal" and "greedy". Please refer to binning.py for details.
+    :param save_bucket_bins: Set to true for dynamic environment, the default is False for static environment
+    :return:
+    """
+    if not data_path.endswith(".csv"):
+        data_path += "/{}.csv"
+    schema = gen_job_light_imdb_schema(data_path)
+    all_keys, equivalent_keys = identify_key_values(schema)
+    actual_data = dict()
+    data = dict()
+    key_data = dict()  # store the columns of all keys
+    table_key_lens = dict()
+    sample_rate = dict()
+    primary_keys = []
+    null_values = dict()
+    key_attrs = dict()
+    for table_obj in schema.tables:
+        table_name = table_obj.table_name
+        null_values[table_name] = dict()
+        key_attrs[table_name] = []
+        if table_name in actual_data:
+            df_rows = copy.deepcopy(actual_data[table_name])
+        else:
+            df_rows = read_table_csv(table_obj, db_name="stats")
+        for attr in df_rows.columns:
+            if attr in all_keys:
+                table_key_lens[attr] = len(df_rows)
+                key_data[attr] = df_rows[attr].values
+                # the nan value of id are set to -1, this is hardcoded.
+                key_data[attr][np.isnan(key_data[attr])] = -1
+                key_data[attr][key_data[attr] < 0] = -1
+                null_values[table_name][attr] = -1
+                key_data[attr] = copy.deepcopy(key_data[attr])[key_data[attr] >= 0]
+                # if the all keys have exactly one appearance, we consider them primary keys
+                # we set a error margin of 0.01 in case of data mis-write.
+                if len(np.unique(key_data[attr])) >= len(key_data[attr]) * 0.99:
+                    primary_keys.append(attr)
+                sample_rate[attr] = 1.0
+                key_attrs[table_name].append(attr)
+            else:
+                temp = df_rows[attr].values
+                null_values[table_name][attr] = np.nanmin(temp) - 100
+                temp[np.isnan(temp)] = null_values[table_name][attr]
+        data[table_name] = df_rows
+
+    all_bin_modes = dict()
+    bin_size = dict()
+    binned_data = dict()
+    optimal_buckets = dict()
+    all_bin_means = dict()
+    all_bin_width = dict()
+    for PK in equivalent_keys:
+        print(f"bucketizing equivalent key group:", equivalent_keys[PK])
+        group_data = {}
+        group_sample_rate = {}
+        for K in equivalent_keys[PK]:
+            group_data[K] = key_data[K]
+            group_sample_rate[K] = sample_rate[K]
+        if bucket_method == "greedy":
+            temp_data, optimal_bucket = greedy_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+        elif bucket_method == "sub_optimal":
+            temp_data, optimal_bucket = sub_optimal_bucketize(group_data, sample_rate, n_bins, primary_keys,
+                                                              return_bin_means, True)
+        elif bucket_method == "naive":
+            temp_data, optimal_bucket = naive_bucketize(group_data, sample_rate, n_bins, primary_keys, True)
+        elif bucket_method == "fixed_start_key":
+            start_key = get_start_key(list(group_data.keys()), table_key_lens, primary_keys)
+            temp_data, optimal_bucket = fixed_start_key_bucketize(start_key, group_data, group_sample_rate,
+                                                                  n_bins=n_bins[PK], primary_keys=primary_keys,
+                                                                  return_data=True)
+        else:
+            assert False, f"unrecognized bucketization method: {bucket_method}"
+
+        binned_data.update(temp_data)
+        for K in equivalent_keys[PK]:
+            optimal_buckets[K] = optimal_bucket
+            all_bin_means[K] = np.asarray(optimal_bucket.buckets[K].bin_means)
+            all_bin_width[K] = np.asarray(optimal_bucket.buckets[K].bin_width)
+            temp_table_name = K.split(".")[0]
+            if temp_table_name not in bin_size:
+                bin_size[temp_table_name] = dict()
+            bin_size[temp_table_name][K] = len(optimal_bucket.bins)
+            all_bin_modes[K] = np.asarray(optimal_bucket.buckets[K].bin_modes)
+
+    for K in binned_data:
+        temp_table_name = K.split(".")[0]
+        temp = copy.deepcopy(data[temp_table_name][K].values)
+        temp[temp >= 0] = binned_data[K]
+        binned_data[K] = temp
+
+    if get_bin_means:
+        table_buckets = generate_table_bucket_means(data, binned_data, key_attrs, bin_size, all_bin_means,
+                                                    optimal_buckets)
+    else:
+        table_buckets = generate_table_buckets(data, binned_data, key_attrs, bin_size, all_bin_modes, optimal_buckets)
+
+    for K in binned_data:
+        temp_table_name = K.split(".")[0]
+        data[temp_table_name][K] = binned_data[K]
+
+    if save_bucket_bins:
+        with open(model_folder + "buckets.pkl", "wb") as f:
+            pickle.dump(optimal_buckets, f, pickle.HIGHEST_PROTOCOL)
+    if return_bin_means:
+        return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size, all_bin_means, all_bin_width
+    return data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size
 

@@ -3,9 +3,9 @@ import logging
 import os
 import time
 
-from Join_scheme.data_prepare import convert_time_to_int
+from Join_scheme.data_prepare import convert_time_to_int, preprocess_imdb_light_data
 from Evaluation.training import train_one_stats, train_one_imdb
-from Evaluation.testing import test_on_stats, test_on_imdb
+from Evaluation.testing import test_on_stats, test_on_imdb, test_on_imdb_light
 from Evaluation.updating import eval_update
 
 if __name__ == '__main__':
@@ -29,6 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--bucket_method', type=str, default="greedy", help="The bin size on the id attributes")
     parser.add_argument('--external_workload_file', type=str, default=None, help="A query workload to decide n_bins")
     parser.add_argument('--save_bucket_bins', help="Whether want to support data update", action='store_true')
+    parser.add_argument('--get_bin_means', help="Setting this will use mean of the bin", action='store_true')
     parser.add_argument('--db_conn_kwargs', type=str,
                         default="dbname=imdb user=postgres password=postgres host=127.0.0.1 port=5436",
                         help="Postgres dsn connection string")
@@ -56,6 +57,9 @@ if __name__ == '__main__':
     parser.add_argument('--query_file_location', type=str,
                         default=None,
                         help='Location to the test queries')
+    parser.add_argument('--ground_true_file_location', type=str,
+                        default=None,
+                        help='Location to the true cardinality of queries')
     parser.add_argument('--derived_query_file', type=str,
                         default=None,
                         help='Location to the queries and its sub-plan queries')
@@ -93,8 +97,15 @@ if __name__ == '__main__':
         
         elif args.generate_models:
             start_time = time.time()
-            train_one_stats(args.dataset, args.data_path, args.model_path, args.n_dim_dist, args.n_bins,
-                            args.bucket_method, args.save_bucket_bins, args.seed)
+            train_one_stats(dataset=args.dataset,
+                            data_path=args.data_path,
+                            model_folder=args.model_path,
+                            n_dim_dist=args.n_dim_dist,
+                            n_bins=args.n_bins,
+                            bucket_method=args.bucket_method,
+                            save_bucket_bins=args.save_bucket_bins,
+                            get_bin_means=args.get_bin_means,
+                            seed=args.seed)
             end_time = time.time()
             print(f"Training completed: total training time is {end_time - start_time}")
             
@@ -107,6 +118,26 @@ if __name__ == '__main__':
             print(args.split_date)
             eval_update(args.data_path, args.model_path, args.n_dim_dist, args.n_bins, args.bucket_method,
                         args.split_date, args.seed)
+
+    elif args.dataset == 'imdb-light':
+        if args.preprocess_data:
+            preprocess_imdb_light_data(args.data_path, args.query_file_location, args.save_folder)
+        if args.generate_models:
+            start_time = time.time()
+            train_one_stats(dataset=args.dataset,
+                            data_path=args.data_path,
+                            model_folder=args.model_path,
+                            n_dim_dist=args.n_dim_dist,
+                            n_bins=args.n_bins,
+                            bucket_method=args.bucket_method,
+                            save_bucket_bins=args.save_bucket_bins,
+                            get_bin_means=args.get_bin_means,
+                            seed=args.seed)
+            end_time = time.time()
+            print(f"Training completed: total training time is {end_time - start_time}")
+        if args.evaluate:
+            test_on_imdb_light(args.model_path, args.query_file_location, args.ground_true_file_location)
+
 
     elif args.dataset == 'imdb':
         if args.generate_models:

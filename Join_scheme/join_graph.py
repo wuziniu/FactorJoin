@@ -1,7 +1,6 @@
 import numpy as np
 import ast
-
-from Join_scheme.data_prepare import identify_key_values
+import re
 
 
 OPS = {
@@ -17,6 +16,7 @@ OPS = {
 def process_condition(cond, tables_all=None):
     # parse a condition, either filter predicate or join operation
     start = None
+    end = None
     join = False
     join_keys = {}
     if ' IN ' in cond:
@@ -45,7 +45,7 @@ def process_condition(cond, tables_all=None):
             else:
                 end = i + 1
             break
-    assert start is not None
+    assert start is not None and end is not None
     left = cond[:start].strip()
     ops = cond[start:end].strip()
     right = cond[end:].strip()
@@ -54,7 +54,8 @@ def process_condition(cond, tables_all=None):
         cond = cond.replace(table1 + ".", tables_all[table1] + ".")
         table1 = tables_all[table1]
         left = table1 + "." + left.split(".")[-1].strip()
-    if "." in right:
+    pattern = r"\b[a-zA-Z_]+\.[a-zA-Z_]+\b"
+    if re.match(pattern, right):
         table2 = right.split(".")[0].strip().lower()
         if tables_all:
             cond = cond.replace(table2 + ".", tables_all[table2] + ".")

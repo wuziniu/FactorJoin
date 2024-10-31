@@ -1,12 +1,17 @@
 import pickle
 import time
 import numpy as np
+import pandas as pd
 import os
 
 
 def test_on_stats(model_path, query_file, save_res=None):
 	with open(model_path, "rb") as f:
 		bound_ensemble = pickle.load(f)
+
+	for table in bound_ensemble.bns:
+		bn = bound_ensemble.bns[table]
+		bn.init_inference_method()
 
 	with open(query_file, "r") as f:
 		queries = f.readlines()
@@ -33,6 +38,39 @@ def test_on_stats(model_path, query_file, save_res=None):
 		with open(save_res, "w") as f:
 			for p in pred:
 				f.write(str(p) + "\n")
+
+def test_on_imdb_light(model_path, query_file, true_cardinality_file):
+	with open(model_path, "rb") as f:
+		bound_ensemble = pickle.load(f)
+
+	for table in bound_ensemble.bns:
+		bn = bound_ensemble.bns[table]
+		bn.init_inference_method()
+
+	with open(query_file, "r") as f:
+		queries = f.readlines()
+
+	true_card = pd.read_csv("true_cards_joblightranges.csv")
+	true_card = true_card["True cardinality"].values
+
+	q_errors = []
+	latency = []
+	for i, query in enumerate(queries):
+		t = time.time()
+		pred = bound_ensemble.get_cardinality_bound_one(query)
+		latency.append(time.time() - t)
+		if pred <= 1:
+			pred = 1
+		true = true_card[i]
+		if true <= 1:
+			true = 1
+		error = max(true / pred, pred / true)
+		q_errors.append(error)
+
+	print(f"Average query inference latency is {np.mean(latency)}s")
+	for i in [50, 90, 95, 99, 100]:
+		print(f"q-error {i}% percentile is {np.percentile(q_errors, i)}")
+
 
 def get_job_sub_plan_queires(query_folder):
 	"""

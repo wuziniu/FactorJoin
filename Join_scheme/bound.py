@@ -6,6 +6,7 @@ from Join_scheme.join_graph import process_condition, get_join_hyper_graph, pars
 from Join_scheme.data_prepare import identify_key_values
 from BayesCard.Evaluation.cardinality_estimation import timestamp_transorform, construct_table_query
 from Sampling.load_sample import load_sample_imdb_one_query
+#from Sampling.sample_on_the_fly import sample_on_the_fly
 from Join_scheme.factor import Factor, Group_Factor
 
 
@@ -57,6 +58,7 @@ class Bound_ensemble:
             return tables_all, table_filters, join_cond, join_keys
 
         query = query.replace(" where ", " WHERE ")
+        query = query.replace(" as ", " AS ")
         query = query.replace(" from ", " FROM ")
         query = query.replace(" and ", " AND ")
         query = query.split(";")[0]
@@ -68,8 +70,8 @@ class Bound_ensemble:
         tables_str = query.split(" WHERE ")[0].split(" FROM ")[-1]
         for table_str in tables_str.split(","):
             table_str = table_str.strip()
-            if " as " in table_str:
-                tables_all[table_str.split(" as ")[-1]] = table_str.split(" as ")[0]
+            if " AS " in table_str:
+                tables_all[table_str.split(" AS ")[-1]] = table_str.split(" AS ")[0]
             else:
                 tables_all[table_str.split(" ")[-1]] = table_str.split(" ")[0]
 
@@ -86,7 +88,9 @@ class Bound_ensemble:
                     value = timestamp_transorform(value.strip().split("::timestamp")[0])
                 if table not in table_query:
                     table_query[table] = dict()
-                construct_table_query(self.bns[table], table_query[table], attr, op, value)
+                succeed = construct_table_query(self.bns[table], table_query[table], attr, op, value)
+                if not succeed:
+                    return None, None, None, None
             else:
                 join_cond.append(cond)
                 for tab in join_key:
@@ -102,9 +106,9 @@ class Bound_ensemble:
             return load_sample_imdb_one_query(self.table_buckets, tables_alias, query_file_name, join_keys,
                                               self.ground_truth_factors_no_filter, self.SPERCENTAGE,
                                               self.query_sample_location)
-        else:
-            return sample_on_the_fly(query_str, self.table_buckets, tables_alias, self.ground_truth_factors_no_filter,
-                                     self.SPERCENTAGE, self.equivalent_keys, self.db_conn_kwargs)
+        #else:
+         #   return sample_on_the_fly(query_str, self.table_buckets, tables_alias, self.ground_truth_factors_no_filter,
+          #                           self.SPERCENTAGE, self.equivalent_keys, self.db_conn_kwargs)
 
     def get_all_id_conidtional_distribution_bn(self, table_queries, join_keys, equivalent_group):
         res = dict()
@@ -114,6 +118,8 @@ class Bound_ensemble:
                 table_query = table_queries[table]
             else:
                 table_query = {}
+            #print(table, key_attrs)
+            #print(table_query)
             id_attrs, probs = self.bns[table].query_id_prob(table_query, key_attrs)
             new_id_attrs = []
             for K in id_attrs:
@@ -245,6 +251,9 @@ class Bound_ensemble:
 
     def get_cardinality_bound_one(self, query_str, query_name=None):
         tables_all, table_queries, join_cond, join_keys = self.parse_query_simple(query_str)
+        if tables_all is None:
+            print("parse query not successful: ", query_str)
+            return 1
         equivalent_group = get_join_hyper_graph(join_keys, self.equivalent_keys)
         if self.bns is not None:
             conditional_factors = self.get_all_id_conidtional_distribution_bn(table_queries, join_keys,

@@ -55,7 +55,6 @@ class Bayescard_BN(BN_Single):
         self.infer_machine = None
         self.cpds = None
 
-
     def build_from_data(self, dataset, attr_type=None, sample_size=1000000, n_mcv=30, n_bins=60, ignore_cols=[],
                         algorithm="chow-liu", drop_na=True, max_parents=-1, root=0, n_jobs=8, discretized=False):
         """ Build the Pomegranate model from data, including structure learning and paramter learning
@@ -243,7 +242,6 @@ class Bayescard_BN(BN_Single):
         self.infer_machine = VariableEliminationJIT(self.model, cpds, topological_order, topological_order_node,
                                                     fanouts=self.id_attributes)
 
-
     def continuous_range_map(self, col, range):
         def cal_coverage(l, r, target):
             tl = target.left
@@ -263,13 +261,18 @@ class Bayescard_BN(BN_Single):
 
         def binary_search(i, j):
             # binary_search to find a good starting point
+            assert i <= j
             if i == j:
                 return i
             m = int(i + (j - i) / 2)
             interval = self.mapping[col][m]
             if left >= interval.right:
+                if m == i:
+                    m = i + 1
                 return binary_search(m, j)
             elif right <= interval.left:
+                if m == j:
+                    m = j - 1
                 return binary_search(i, m)
             else:
                 return m
@@ -282,7 +285,7 @@ class Bayescard_BN(BN_Single):
         min_val = min(list(self.mapping[col].keys()))
         max_val = max(list(self.mapping[col].keys()))
         if left >= self.mapping[col][max_val].right or right <= self.mapping[col][min_val].left:
-            print(left, self.mapping[col][max_val].right, right, self.mapping[col][min_val].left)
+            #print(left, self.mapping[col][max_val].right, right, self.mapping[col][min_val].left)
             return None, None
         start_point = binary_search(min_val, max_val)
         start_point_left = start_point
@@ -345,9 +348,9 @@ class Bayescard_BN(BN_Single):
                     else:
                         l = query[attr]-epsilon
                         r = query[attr]+epsilon
-                        if attr in self.n_distinct_mapping:
-                            if query[attr] in self.n_distinct_mapping[attr]:
-                                n_d_temp = self.n_distinct_mapping[attr][query[attr]]
+                        #if attr in self.n_distinct_mapping:
+                         #   if query[attr] in self.n_distinct_mapping[attr]:
+                          #      n_d_temp = self.n_distinct_mapping[attr][query[attr]]
                     if l > r:
                         return None, None
                     query[attr], n_distinct[attr] = self.continuous_range_map(attr, (l, r))

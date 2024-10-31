@@ -65,7 +65,11 @@ def categorical_qcut(series, q, start_value):
     cum_freq = 0
     
     value = start_value
-    for i, (val, freq) in enumerate(value_counts.iteritems()):
+    if pd.__version__ >= "2.0.0":
+        val_count_iterator = value_counts.items()
+    else:
+        val_count_iterator = value_counts.iteritems()
+    for i, (val, freq) in enumerate(val_count_iterator):
         if len(values_in_bin) == 0:
             left = i
         values_in_bin.append(val)
@@ -88,7 +92,8 @@ def categorical_qcut(series, q, start_value):
 
 
 
-def discretize_series(series: pd.Series, n_mcv, n_bins, is_continous=False, continuous_bins=None, drop_na=True,):
+def discretize_series(series: pd.Series, n_mcv, n_bins, is_continous=False, continuous_bins=None, drop_na=True,
+                      null_value=None):
     """
     Map every value to category, binning the small categories if there are more than n_mcv categories.
     Map intervals to categories for efficient model learning
@@ -110,7 +115,10 @@ def discretize_series(series: pd.Series, n_mcv, n_bins, is_continous=False, cont
         # Histogram for continuous data
         if not continuous_bins:
             continuous_bins = n_bins * 2
-        domains = (s.min(), s.max())
+        if null_value is not None:
+            domains = (s.min() + 100, s.max())
+        else:
+            domains = (s.min(), s.max())
         temp = pd.qcut(s, q=continuous_bins, duplicates='drop')
         categ = dict()
         val = 0

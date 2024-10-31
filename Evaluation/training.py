@@ -47,10 +47,13 @@ def test_trained_BN_on_stats(bn, t_name):
 
 
 def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, bucket_method="greedy",
-                    save_bucket_bins=False, seed=0, validate=True, actual_data=None):
+                    save_bucket_bins=False, get_bin_means=False, return_bin_means=False, seed=0, validate=True, actual_data=None):
     np.random.seed(seed)
-    data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size = process_stats_data(data_path,
-                                        model_folder, n_bins, bucket_method, save_bucket_bins, actual_data=actual_data)
+    data, null_values, key_attrs, table_buckets, equivalent_keys, schema, bin_size, all_bin_means, all_bin_width\
+        = process_stats_data(dataset, data_path, model_folder, n_bins, bucket_method, save_bucket_bins,
+                             get_bin_means=get_bin_means,
+                             return_bin_means=return_bin_means,
+                             actual_data=actual_data)
     all_bns = dict()
     for table in schema.tables:
         t_name = table.table_name
@@ -58,7 +61,8 @@ def train_one_stats(dataset, data_path, model_folder, n_dim_dist=2, n_bins=200, 
         bn = Bayescard_BN(t_name, key_attrs[t_name], bin_size[t_name], null_values=null_values[t_name])
         bn.build_from_data(data[t_name])
         if validate:
-            test_trained_BN_on_stats(bn, t_name)
+            if dataset == "stats":
+                test_trained_BN_on_stats(bn, t_name)
         all_bns[t_name] = bn
 
     be = Bound_ensemble(table_buckets, schema, n_dim_dist, bns=all_bns, null_value=null_values)

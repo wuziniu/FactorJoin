@@ -213,7 +213,48 @@ https://github.com/Nathaniel-Han/End-to-End-CardEst-Benchmark#how-to-generate-su
   In order to reproduce the results, make sure to execute the query multiple time first to warm up postgres and make fair comparisons among all methods.
 
 
-## Reproducing result on SSB
+## Run IMDB-light schema and queries (e.g. JOB-light, JOBLightRanges)
+We provided the IMDB-light schema in Schemas/imdb/schema.py. Check gen_job_light_imdb_schema function to see if the rows matches the IMDB dataset you downloaded.
+
+### Preprocess IMDB dataset for JOBLightRanges
+Since JOBLightRanges queries contain range filters on string columns, we need to convert the string to int type first.
+
+Note that the current version of FactorJoin does not support range filters on string columns but it is not a fundamental
+limitations and should be very easy to extend in the future.
+
+```
+python run_experiment.py --dataset imdb-light \
+     --preprocess_data \
+     --data_path ../../Data/imdb/{}.csv \
+     --query_file_location checkpoints/JOBLightRangesQueries.sql \
+     --save_folder ../../Data/imdb_tmp/
+```
+
+### Run the following command to train the models
+```
+python run_experiment.py --dataset imdb-light \
+     --generate_models \
+     --data_path ../../Data/imdb_tmp/{}.csv \
+     --model_path checkpoints/ \
+     --n_dim_dist 2 \
+     --n_bins 200 \
+     --bucket_method fixed_start_key \
+     --get_bin_means
+```
+Note here the --data_path will be the path to your preprocessed IMDB-light dataset.
+--bucket_method fixed_start_key is recommended for IMDB dataset due to training efficiency 
+
+
+### Run the following command to test the models
+```
+python run_experiment.py --dataset imdb-light \
+     --evaluate \
+     --model_path checkpoints/model_imdb-light_fixed_start_key_200.pkl \
+     --query_file_location ../../Data/imdb_tmp/JOBLightRangesQueries.sql
+     --ground_true_file_location true_cards_joblightranges.csv
+```
+
+--query_file_location points to the rewritten JOBLightRangesQueries.sql
 
 
 
