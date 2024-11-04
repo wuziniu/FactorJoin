@@ -320,7 +320,7 @@ def divide_bin(bin, curr_bin_data, n_bins, start_key_data):
     uniques = uniques[idx]
 
     # Natural breaks optimization using Fisher-Jenks Algorithms
-    if jenkspy.__version__ >= "0.2.0":
+    if jenkspy.__version__ > "0.2.0":
         breaks = jenkspy.jenks_breaks(counts, n_classes=n_bins)
     else:
         breaks = jenkspy.jenks_breaks(counts, nb_class=n_bins)

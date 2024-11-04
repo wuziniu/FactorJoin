@@ -183,7 +183,7 @@ def get_data_by_date(data_path, time_date="2014-01-01 00:00:00"):
 def convert_time_to_int(data_folder):
     for file in os.listdir(data_folder):
         if file.endswith(".csv"):
-            csv_file_location = data_folder + file
+            csv_file_location = os.path.join(data_folder, file)
             df_rows = pd.read_csv(csv_file_location)
             for attribute in df_rows.columns:
                 if "Date" in attribute:
@@ -408,8 +408,9 @@ def process_stats_data(dataset, data_path, model_folder, n_bins=500, bucket_meth
                 # the nan value of id are set to -1, this is hardcoded.
                 key_data[attr][np.isnan(key_data[attr])] = -1
                 key_data[attr][key_data[attr] < 0] = -1
-                null_values[table_name][attr] = -1
-                key_data[attr] = copy.deepcopy(key_data[attr])[key_data[attr] >= 0]
+                key_data[attr] += 1
+                null_values[table_name][attr] = 0
+                key_data[attr] = copy.deepcopy(key_data[attr])[key_data[attr] > 0]
                 # if the all keys have exactly one appearance, we consider them primary keys
                 # we set a error margin of 0.01 in case of data mis-write.
                 if len(np.unique(key_data[attr])) >= len(key_data[attr]) * 0.99:
@@ -469,7 +470,7 @@ def process_stats_data(dataset, data_path, model_folder, n_bins=500, bucket_meth
     for K in binned_data:
         temp_table_name = K.split(".")[0]
         temp = copy.deepcopy(data[temp_table_name][K].values)
-        temp[temp >= 0] = binned_data[K]
+        temp[temp > 0] = binned_data[K]
         binned_data[K] = temp
         
     if get_bin_means:
@@ -524,8 +525,9 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, null_valu
                 # the nan value of id are set to -1, this is hardcoded.
                 key_data[attr][np.isnan(key_data[attr])] = -1
                 key_data[attr][key_data[attr] < 0] = -1
-                null_values[table_name][attr] = -1
-                key_data[attr] = copy.deepcopy(key_data[attr])[key_data[attr] >= 0]
+                key_data[attr] += 1
+                null_values[table_name][attr] = 0
+                key_data[attr] = copy.deepcopy(key_data[attr])[key_data[attr] > 0]
                 # if the all keys have exactly one appearance, we consider them primary keys
                 # we set a error margin of 0.01 in case of data mis-write.
                 if len(np.unique(key_data[attr])) >= len(key_data[attr]) * 0.99:
@@ -550,7 +552,7 @@ def update_stats_data(data_path, model_folder, buckets, table_buckets, null_valu
     for K in all_binned_data:
         temp_table_name = K.split(".")[0]
         temp = copy.deepcopy(data[temp_table_name][K].values)
-        temp[temp >= 0] = all_binned_data[K]
+        temp[temp > 0] = all_binned_data[K]
         all_binned_data[K] = temp
 
     new_table_buckets = update_table_buckets(buckets, data, all_binned_data, all_bin_modes, table_buckets)

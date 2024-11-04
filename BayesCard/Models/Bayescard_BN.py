@@ -19,7 +19,6 @@ def multi_dim_index(a, index, new_value):
             new_shape = tuple([-1] + [1] * (n-i-1))
         else:
             new_shape = -1
-        print(new_shape, len(ind))
         new_index.append(ind.reshape(new_shape))
     #print("new_index:", new_index)
     #print("new_value:", new_value.shape)
@@ -156,8 +155,6 @@ class Bayescard_BN(BN_Single):
             assert cpd.variable == new_cpd.variable, "variable mismatch"
             self.model.cpds[i] = self.update_cpd_table(cpd, new_cpd)
 
-
-
         # changing meta-info
         self.nrows += self.insert_len
         self.mapping = self.mapping_update
@@ -203,22 +200,19 @@ class Bayescard_BN(BN_Single):
         ret_values_new = np.zeros(tuple(ret_values_shape))
         new_index = []
         for i, col in enumerate(old_cpd.state_names):
-            if -1 in new_cpd.state_names[col] and -1 not in ret_cpd_state_names[col]:
-                #this hard coded for we use -1 as Nan value for id_columns
-                idx = new_cpd.state_names[col].index(-1)
+            if col in self.id_attributes and 0 in new_cpd.state_names[col] and 0 not in ret_cpd_state_names[col]:
+                #this hard coded because we use 0 as Nan value for id_columns
+                idx = new_cpd.state_names[col].index(0)
                 array_idx = np.delete(np.arange(len(new_cpd.state_names[col])), idx)
-                new_cpd.state_names[col].remove(-1)
+                new_cpd.state_names[col].remove(0)
                 if i == 0:
                     new_cpd.values = new_cpd.values[array_idx]
                 elif i == 1:
                     new_cpd.values = new_cpd.values[:, array_idx]
                 else:
                     assert False, "only support 2d id distributions"
-            #print("new_cpd.state_names: ", len(new_cpd.state_names[col]))
             new_index.append([ret_cpd_state_names[col].index(x) for x in new_cpd.state_names[col]])
-            #print("new_index:", len(new_index[-1]))
 
-        #print("new_cpd.value: ", new_cpd.values.shape)
         ret_values_new = multi_dim_index(ret_values_new, new_index, new_cpd.values)
 
         ret_values = self.nrows * ret_values_old + self.insert_len * ret_values_new

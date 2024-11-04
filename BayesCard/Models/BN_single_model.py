@@ -52,7 +52,7 @@ class BN_Single():
                 table = table.drop(col, axis=1)
             elif col in id_attributes:
                 self.encoding[col] = np.sort(np.unique(table[col].values)).astype(int)
-                if self.encoding[col][0] < 0:
+                if self.encoding[col][0] <= 0:
                     self.id_exist_null[col] = True
                     self.id_value_position[col] = self.encoding[col][1:]
                 else:
@@ -93,7 +93,17 @@ class BN_Single():
             if col in ignore_cols:
                 table = table.drop(col, axis=1)
             elif col in self.id_attributes:
-                continue
+                for val in np.unique(table[col].values).astype(int):
+                    if val not in self.encoding_update[col]:
+                        self.encoding_update[col] = np.append(self.encoding_update[col], val)
+                self.encoding_update[col] = np.sort(self.encoding_update[col]).astype(int)
+                if self.encoding_update[col][0] <= 0:
+                    self.id_exist_null[col] = True
+                    self.id_value_position[col] = self.encoding[col][1:]
+                else:
+                    self.id_exist_null[col] = False
+                    self.id_value_position[col] = self.encoding[col]
+                self.domain[col] = list(self.encoding_update[col])
             else:
                 table[col], self.n_in_bin_update[col], self.encoding_update[col], mapping\
                     = self.discretize_series_based_on_existing(
@@ -130,6 +140,7 @@ class BN_Single():
             old_mapping = self.mapping[col]
             # handling things that are out of range
             continuous_bins = [old_mapping[0].left] + [old_mapping[k].right for k in old_mapping]
+            self.domain[col] = (np.min(continuous_bins), np.max(continuous_bins))
             if s.min() < self.domain[col][0]:
                 continuous_bins = [s.min()-0.0001] + continuous_bins
                 val = -1
@@ -349,6 +360,7 @@ class BN_Single():
             from pomegranate.bayesian_network import _learn_structure
             import torch
             discrete_table_torch = torch.from_numpy(sample_discrete_table.values).to(torch.int64)
+            print(discrete_table_torch.min(), discrete_table_torch.shape)
             self.structure = _learn_structure(discrete_table_torch,
                                               algorithm=algorithm,
                                               max_parents=max_parents,

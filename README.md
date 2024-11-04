@@ -130,7 +130,7 @@ We use two query workloads to evalute our results, STATS-CEB and IMDB-JOB.
          --model_path checkpoints/update/ \
          --n_dim_dist 2 \
          --n_bins 200 \
-         --bucket_method sub_optimal \
+         --bucket_method greedy \
          --split_date '2014-01-01 00:00:00'
   ```
   Afterwards, an updated model should be saved under --model_path, and you can follow the previous instruction to evaluate its end-to-end performance.

@@ -87,7 +87,7 @@ def eval_update(data_folder, model_path, n_dim_dist, bin_size, bucket_method, sp
     print(f"training completed, took {time.time() - start_time} sec")
 
     # loading the trained model and buckets
-    with open(os.path.join(model_path, "buckets.pkl"), "rb") as f:
+    with open(os.path.join(model_path, "stats_buckets.pkl"), "rb") as f:
         buckets = pickle.load(f)
     with open(os.path.join(model_path, f"model_stats_{bucket_method}_{bin_size}.pkl"), "rb") as f:
         FJmodel = pickle.load(f)
