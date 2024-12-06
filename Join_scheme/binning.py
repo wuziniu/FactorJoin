@@ -319,11 +319,12 @@ def divide_bin(bin, curr_bin_data, n_bins, start_key_data):
     counts = counts[idx]
     uniques = uniques[idx]
 
+    curr_nbins = max(min(int(n_bins), len(np.unique(counts))), 1)
     # Natural breaks optimization using Fisher-Jenks Algorithms
     if jenkspy.__version__ > "0.2.0":
-        breaks = jenkspy.jenks_breaks(counts, n_classes=n_bins)
+        breaks = jenkspy.jenks_breaks(counts, n_classes=curr_nbins)
     else:
-        breaks = jenkspy.jenks_breaks(counts, nb_class=n_bins)
+        breaks = jenkspy.jenks_breaks(counts, nb_class=curr_nbins)
     breaks[-1] += 0.01
     new_bins = []
     bin_means = []
